@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from zulip_search import messages_for_agent
+from agent import run_agent
 
 load_dotenv()
 
@@ -20,9 +20,16 @@ def index():
         return f.read()
 
 
-@app.get("/search")
-def search(q: str):
-    return messages_for_agent(q)
+@app.get("/conversation", response_class=HTMLResponse)
+def conversation():
+    with open("static/conversation.html") as f:
+        return f.read()
+
+
+@app.get("/ask")
+def ask(q: str):
+    messages, final_answer = run_agent(q)
+    return {"messages": messages, "final_answer": final_answer}
 
 
 if __name__ == "__main__":

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ask RC Zulip</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    a { color: inherit; }
+    h2 { font-size: 1.1rem; font-weight: normal; color: #555; margin-bottom: 1.5rem; }
+    .message { margin-bottom: 1rem; border-radius: 6px; padding: 0.75rem 1rem; }
+    .message.assistant { background: #f0f4ff; }
+    .message.tool { background: #f4f4f4; font-family: monospace; font-size: 0.85rem; }
+    .message.tool pre { margin: 0; white-space: pre-wrap; }
+    .role { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #888; margin-bottom: 0.25rem; }
+    .tool-call { color: #555; }
+    .tool-call code { background: #e8e8e8; padding: 0.1em 0.3em; border-radius: 3px; }
+    .final-answer { background: #eaffea; border-left: 4px solid #4caf50; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; }
+    #status { color: #888; font-style: italic; }
+    #error { color: red; }
+  </style>
+</head>
+<body>
+  <p><a href="/">&larr; New question</a></p>
+  <h2 id="question"></h2>
+  <p id="status">Thinking...</p>
+  <p id="error"></p>
+  <div id="conversation"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q") || "";
+    document.getElementById("question").textContent = q;
+    document.title = q ? `${q} — Ask RC Zulip` : "Ask RC Zulip";
+
+    async function load() {
+      const statusEl = document.getElementById("status");
+      const errorEl = document.getElementById("error");
+      const convEl = document.getElementById("conversation");
+
+      try {
+        const res = await fetch(`/ask?q=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        statusEl.textContent = "";
+
+        for (const msg of data.messages) {
+          if (msg.role === "system" || msg.role === "user") continue;
+
+          const div = document.createElement("div");
+
+          if (msg.role === "assistant" && msg.tool_calls) {
+            div.className = "message tool";
+            const roleEl = document.createElement("div");
+            roleEl.className = "role";
+            roleEl.textContent = "tool calls";
+            div.appendChild(roleEl);
+            for (const tc of msg.tool_calls) {
+              const args = JSON.parse(tc.function.arguments);
+              const p = document.createElement("p");
+              p.className = "tool-call";
+              p.innerHTML = `<code>${tc.function.name}</code> — ${JSON.stringify(args)}`;
+              div.appendChild(p);
+            }
+          } else if (msg.role === "tool") {
+            div.className = "message tool";
+            const roleEl = document.createElement("div");
+            roleEl.className = "role";
+            roleEl.textContent = "tool result";
+            div.appendChild(roleEl);
+            let parsed;
+            try { parsed = JSON.parse(msg.content); } catch { parsed = msg.content; }
+            const msgs = parsed?.messages;
+            if (Array.isArray(msgs)) {
+              const p = document.createElement("p");
+              p.textContent = `${msgs.length} message(s) returned`;
+              div.appendChild(p);
+            } else {
+              const pre = document.createElement("pre");
+              pre.textContent = typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+              div.appendChild(pre);
+            }
+          } else if (msg.role === "assistant" && msg.content) {
+            div.className = "message assistant final-answer";
+            const roleEl = document.createElement("div");
+            roleEl.className = "role";
+            roleEl.textContent = "answer";
+            div.appendChild(roleEl);
+            const p = document.createElement("p");
+            p.style.margin = "0";
+            p.style.whiteSpace = "pre-wrap";
+            p.textContent = msg.content;
+            div.appendChild(p);
+          }
+
+          if (div.className) convEl.appendChild(div);
+        }
+      } catch (err) {
+        statusEl.textContent = "";
+        errorEl.textContent = `Error: ${err.message}`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

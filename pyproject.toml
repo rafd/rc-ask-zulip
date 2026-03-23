@@ -8,4 +8,5 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "uvicorn>=0.42.0",
     "zulip>=0.9.1",
+    "openai>=1.0.0",
 ]
