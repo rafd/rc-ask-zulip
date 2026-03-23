@@ -26,11 +26,23 @@ def search_messages(query: str) -> dict:
     )
 
 
-def search_messages_anonymized(query: str) -> dict:
+def prepare_for_agent(message: dict) -> dict:
+    return {
+        "content": message["content"],
+        "subject": message["subject"],
+        "display_recipient": message["display_recipient"],
+    }
+
+
+def anonymize_messages(messages: list[dict]) -> list[dict]:
+    return [prepare_for_agent(anonymize_message(m)) for m in messages]
+
+
+def messages_for_agent(query: str) -> dict:
     response = search_messages(query)
     if response.get("result") == "success":
         response = {
             **response,
-            "messages": [anonymize_message(m) for m in response.get("messages", [])],
+            "messages": anonymize_messages(response.get("messages", [])),
         }
     return response

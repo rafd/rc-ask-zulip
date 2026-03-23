@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from zulip_search import search_messages_anonymized
+from zulip_search import messages_for_agent
 
 load_dotenv()
 
@@ -22,7 +22,7 @@ def index():
 
 @app.get("/search")
 def search(q: str):
-    return search_messages_anonymized(q)
+    return messages_for_agent(q)
 
 
 if __name__ == "__main__":
