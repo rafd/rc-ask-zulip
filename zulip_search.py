@@ -28,6 +28,7 @@ def search_messages(query: str) -> dict:
 
 def prepare_for_agent(message: dict) -> dict:
     return {
+        "id": message["id"],
         "content": message["content"],
         "subject": message["subject"],
         "display_recipient": message["display_recipient"],
@@ -38,11 +39,17 @@ def anonymize_messages(messages: list[dict]) -> list[dict]:
     return [prepare_for_agent(anonymize_message(m)) for m in messages]
 
 
-def messages_for_agent(query: str) -> dict:
-    response = search_messages(query)
-    if response.get("result") == "success":
-        response = {
-            **response,
-            "messages": anonymize_messages(response.get("messages", [])),
-        }
-    return response
+def messages_for_agent(*queries: str) -> list[dict]:
+    seen_ids = set()
+    results = []
+    for query in queries:
+        response = search_messages(query)
+        if response.get("result") != "success":
+            continue
+        for message in anonymize_messages(response.get("messages", [])):
+            if message["id"] not in seen_ids:
+                seen_ids.add(message["id"])
+                results.append(message)
+    return results
+
+

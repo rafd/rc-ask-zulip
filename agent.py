@@ -17,17 +17,18 @@ TOOL_SCHEMA = {
         "name": "messages_for_agent",
         "description": (
             "Search Zulip conversations at the Recurse Center and return relevant messages. "
-            "Call this with different queries to gather information about a topic."
+            "Pass multiple queries at once to broaden the search; duplicates are removed."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The search query to find relevant Zulip messages.",
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "One or more search queries to find relevant Zulip messages.",
                 },
             },
-            "required": ["query"],
+            "required": ["queries"],
         },
     },
 }
@@ -35,7 +36,7 @@ TOOL_SCHEMA = {
 
 def _call_tool(name: str, arguments: dict) -> str:
     if name == "messages_for_agent":
-        result = messages_for_agent(arguments["query"])
+        result = messages_for_agent(*arguments["queries"])
         return json.dumps(result)
     raise ValueError(f"Unknown tool: {name}")
 

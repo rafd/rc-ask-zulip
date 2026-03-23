@@ -14,6 +14,9 @@
     .role { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #888; margin-bottom: 0.25rem; }
     .tool-call { color: #555; }
     .tool-call code { background: #e8e8e8; padding: 0.1em 0.3em; border-radius: 3px; }
+    #view-toggle { margin-bottom: 1rem; font-size: 0.85rem; }
+    #view-toggle button { padding: 0.25rem 0.75rem; cursor: pointer; }
+    #view-toggle button.active { font-weight: bold; background: #ddd; }
     .final-answer { background: #eaffea; border-left: 4px solid #4caf50; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; }
     #status { color: #888; font-style: italic; }
     #error { color: red; }
@@ -24,7 +27,12 @@
   <h2 id="question"></h2>
   <p id="status">Thinking...</p>
   <p id="error"></p>
+  <div id="view-toggle" style="display:none">
+    <button id="btn-nice" class="active" onclick="setView('nice')">Nice</button>
+    <button id="btn-debug" onclick="setView('debug')">Debug</button>
+  </div>
   <div id="conversation"></div>
+  <div id="conversation-debug" style="display:none"></div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -42,6 +50,20 @@
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         statusEl.textContent = "";
+        document.getElementById("view-toggle").style.display = "";
+
+        const debugEl = document.getElementById("conversation-debug");
+        const allMessages = data.messages.map(m => {
+          if (m.role === "tool") {
+            let parsed; try { parsed = JSON.parse(m.content); } catch { parsed = m.content; }
+            return { ...m, content: parsed };
+          }
+          return m;
+        });
+        const pre = document.createElement("pre");
+        pre.style.cssText = "background:#f4f4f4; padding:1rem; border-radius:6px; overflow:auto; font-size:0.8rem; white-space:pre-wrap;";
+        pre.textContent = JSON.stringify(allMessages, null, 2);
+        debugEl.appendChild(pre);
 
         for (const msg of data.messages) {
           if (msg.role === "system" || msg.role === "user") continue;
@@ -69,11 +91,20 @@
             div.appendChild(roleEl);
             let parsed;
             try { parsed = JSON.parse(msg.content); } catch { parsed = msg.content; }
-            const msgs = parsed?.messages;
-            if (Array.isArray(msgs)) {
-              const p = document.createElement("p");
-              p.textContent = `${msgs.length} message(s) returned`;
-              div.appendChild(p);
+            if (Array.isArray(parsed)) {
+              for (const m of parsed) {
+                const item = document.createElement("div");
+                item.style.cssText = "margin-bottom:0.75rem; border-left:3px solid #ccc; padding-left:0.5rem;";
+                const meta = document.createElement("div");
+                meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
+                meta.textContent = `#${m.display_recipient} > ${m.subject}`;
+                const body = document.createElement("div");
+                body.style.whiteSpace = "pre-wrap";
+                body.textContent = m.content;
+                item.appendChild(meta);
+                item.appendChild(body);
+                div.appendChild(item);
+              }
             } else {
               const pre = document.createElement("pre");
               pre.textContent = typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
@@ -98,6 +129,13 @@
         statusEl.textContent = "";
         errorEl.textContent = `Error: ${err.message}`;
       }
+    }
+
+    function setView(v) {
+      document.getElementById("conversation").style.display = v === "nice" ? "" : "none";
+      document.getElementById("conversation-debug").style.display = v === "debug" ? "" : "none";
+      document.getElementById("btn-nice").classList.toggle("active", v === "nice");
+      document.getElementById("btn-debug").classList.toggle("active", v === "debug");
     }
 
     load();
