@@ -20,6 +20,13 @@
     .final-answer { background: #eaffea; border-left: 4px solid #4caf50; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; }
     #status { color: #888; font-style: italic; }
     #error { color: red; }
+    .spoiler-block { border: 1px solid #ddd; border-radius: 4px; margin: 0.5rem 0; overflow: hidden; }
+    .spoiler-header { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.75rem; background: #f4f4f4; cursor: pointer; user-select: none; }
+    .spoiler-header:hover { background: #eaeaea; }
+    .spoiler-title { font-size: 0.85rem; color: #555; font-style: italic; }
+    .spoiler-toggle { font-size: 0.75rem; color: #888; }
+    .spoiler-content { padding: 0.75rem; display: none; }
+    .spoiler-content.open { display: block; }
   </style>
 </head>
 <body>
@@ -40,6 +47,31 @@
     const convId = params.get("id") || "";
     document.getElementById("question").textContent = q;
     document.title = q ? `${q} — Ask RC Zulip` : "Ask RC Zulip";
+
+    function initSpoilers(container) {
+      for (const block of container.querySelectorAll(".spoiler-block")) {
+        const header = block.querySelector(".spoiler-header");
+        const content = block.querySelector(".spoiler-content");
+        if (!header || !content) continue;
+
+        const title = document.createElement("span");
+        title.className = "spoiler-title";
+        title.textContent = header.textContent.trim() || "Spoiler";
+        header.textContent = "";
+
+        const toggle = document.createElement("span");
+        toggle.className = "spoiler-toggle";
+        toggle.textContent = "▶ show";
+
+        header.appendChild(title);
+        header.appendChild(toggle);
+
+        header.addEventListener("click", () => {
+          const open = content.classList.toggle("open");
+          toggle.textContent = open ? "▼ hide" : "▶ show";
+        });
+      }
+    }
 
     function render(messages, finalAnswer, convEl) {
       document.getElementById("view-toggle").style.display = "";
@@ -105,10 +137,23 @@
                   meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
                   meta.textContent = `#${m.display_recipient} > ${m.subject}`;
                   const body = document.createElement("div");
-                  body.style.cssText = "font-size:0.9rem; white-space:pre-wrap;";
-                  body.textContent = m.content;
+                  body.style.cssText = "font-size:0.9rem; max-height:6rem; overflow:hidden; position:relative;";
+                  body.innerHTML = m.content;
+                  initSpoilers(body);
                   item.appendChild(meta);
                   item.appendChild(body);
+                  const expand = document.createElement("button");
+                  expand.textContent = "Show more";
+                  expand.style.cssText = "display:none; font-size:0.75rem; color:#4caf50; background:none; border:none; padding:0.25rem 0; cursor:pointer;";
+                  expand.onclick = () => {
+                    body.style.maxHeight = "";
+                    body.style.overflow = "";
+                    expand.style.display = "none";
+                  };
+                  item.appendChild(expand);
+                  requestAnimationFrame(() => {
+                    if (body.scrollHeight > body.clientHeight) expand.style.display = "block";
+                  });
                   citeBlock.appendChild(item);
                 }
                 div.appendChild(citeBlock);
