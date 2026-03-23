@@ -73,45 +73,9 @@
         const div = document.createElement("div");
 
         if (msg.role === "assistant" && msg.tool_calls) {
-          div.className = "message tool";
-          const roleEl = document.createElement("div");
-          roleEl.className = "role";
-          roleEl.textContent = "tool calls";
-          div.appendChild(roleEl);
-          for (const tc of msg.tool_calls) {
-            const args = JSON.parse(tc.function.arguments);
-            const p = document.createElement("p");
-            p.className = "tool-call";
-            p.innerHTML = `<code>${tc.function.name}</code> — ${JSON.stringify(args)}`;
-            div.appendChild(p);
-          }
+          continue;
         } else if (msg.role === "tool") {
-          div.className = "message tool";
-          const roleEl = document.createElement("div");
-          roleEl.className = "role";
-          roleEl.textContent = "tool result";
-          div.appendChild(roleEl);
-          let parsed;
-          try { parsed = JSON.parse(msg.content); } catch { parsed = msg.content; }
-          if (Array.isArray(parsed)) {
-            for (const m of parsed) {
-              const item = document.createElement("div");
-              item.style.cssText = "margin-bottom:0.75rem; border-left:3px solid #ccc; padding-left:0.5rem;";
-              const meta = document.createElement("div");
-              meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
-              meta.textContent = `#${m.display_recipient} > ${m.subject}`;
-              const body = document.createElement("div");
-              body.style.whiteSpace = "pre-wrap";
-              body.textContent = m.content;
-              item.appendChild(meta);
-              item.appendChild(body);
-              div.appendChild(item);
-            }
-          } else {
-            const pre = document.createElement("pre");
-            pre.textContent = typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
-            div.appendChild(pre);
-          }
+          continue;
         } else if (msg.role === "assistant" && msg.content) {
           div.className = "message assistant final-answer";
           const roleEl = document.createElement("div");
