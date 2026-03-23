@@ -40,6 +40,7 @@ def anonymize_message(message: dict) -> dict:
         "sender_email": None,
         "sender_full_name": "",
         "content": anonymize_message_content(message.get("content", "")),
+        "match_content": anonymize_message_content(message.get("match_content", "")),
     }
 
 
