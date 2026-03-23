@@ -14,7 +14,10 @@ def search_messages(query: str) -> dict:
         url="messages",
         method="GET",
         request={
-            "narrow": [{"operator": "search", "operand": query}],
+            "narrow": [
+                {"operator": "is", "operand": "dm", "negated": True},
+                {"operator": "search", "operand": query},
+            ],
             "anchor": "newest",
             "num_before": 20,
             "num_after": 0,
