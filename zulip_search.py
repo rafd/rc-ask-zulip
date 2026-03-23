@@ -34,14 +34,23 @@ def anonymize_message_content(content: str) -> str:
     )
 
 
+CHECKIN_STREAMS = {"checkins", "alumni checkins", "consciousness"}
+
+
+def anonymize_checkins(message: dict) -> dict:
+    if message.get("display_recipient", "").lower() in CHECKIN_STREAMS:
+        return {**message, "subject": ""}
+    return message
+
+
 def anonymize_message(message: dict) -> dict:
-    return {
+    return anonymize_checkins({
         **message,
         "sender_email": None,
         "sender_full_name": "",
         "content": anonymize_message_content(message.get("content", "")),
         "match_content": anonymize_message_content(message.get("match_content", "")),
-    }
+    })
 
 
 def search_messages_anonymized(query: str) -> dict:
