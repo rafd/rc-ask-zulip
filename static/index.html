@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Zulip Search</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    input[type="text"] { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
+    button { margin-top: 0.5rem; padding: 0.5rem 1.5rem; font-size: 1rem; }
+    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; white-space: pre-wrap; }
+    #error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Zulip Search</h1>
+  <form id="search-form">
+    <input type="text" id="query" placeholder="Enter search query..." required>
+    <button type="submit">Search</button>
+  </form>
+  <p id="error"></p>
+  <pre id="results"></pre>
+
+  <script>
+    document.getElementById("search-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const q = document.getElementById("query").value.trim();
+      const resultsEl = document.getElementById("results");
+      const errorEl = document.getElementById("error");
+      resultsEl.textContent = "Loading...";
+      errorEl.textContent = "";
+      try {
+        const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        resultsEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        errorEl.textContent = `Error: ${err.message}`;
+        resultsEl.textContent = "";
+      }
+    });
+  </script>
+</body>
+</html>
