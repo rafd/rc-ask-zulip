@@ -37,8 +37,130 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const q = params.get("q") || "";
+    const convId = params.get("id") || "";
     document.getElementById("question").textContent = q;
     document.title = q ? `${q} — Ask RC Zulip` : "Ask RC Zulip";
+
+    function render(messages, finalAnswer, convEl) {
+      document.getElementById("view-toggle").style.display = "";
+
+      const debugEl = document.getElementById("conversation-debug");
+      const allMessages = messages.map(m => {
+        if (m.role === "tool") {
+          let parsed; try { parsed = JSON.parse(m.content); } catch { parsed = m.content; }
+          return { ...m, content: parsed };
+        }
+        return m;
+      });
+      const pre = document.createElement("pre");
+      pre.style.cssText = "background:#f4f4f4; padding:1rem; border-radius:6px; overflow:auto; font-size:0.8rem; white-space:pre-wrap;";
+      pre.textContent = JSON.stringify(allMessages, null, 2);
+      debugEl.appendChild(pre);
+
+      const messageById = {};
+      for (const msg of messages) {
+        if (msg.role === "tool") {
+          let parsed; try { parsed = JSON.parse(msg.content); } catch { parsed = null; }
+          if (Array.isArray(parsed)) {
+            for (const m of parsed) messageById[m.id] = m;
+          }
+        }
+      }
+
+      for (const msg of messages) {
+        if (msg.role === "system" || msg.role === "user") continue;
+
+        const div = document.createElement("div");
+
+        if (msg.role === "assistant" && msg.tool_calls) {
+          div.className = "message tool";
+          const roleEl = document.createElement("div");
+          roleEl.className = "role";
+          roleEl.textContent = "tool calls";
+          div.appendChild(roleEl);
+          for (const tc of msg.tool_calls) {
+            const args = JSON.parse(tc.function.arguments);
+            const p = document.createElement("p");
+            p.className = "tool-call";
+            p.innerHTML = `<code>${tc.function.name}</code> — ${JSON.stringify(args)}`;
+            div.appendChild(p);
+          }
+        } else if (msg.role === "tool") {
+          div.className = "message tool";
+          const roleEl = document.createElement("div");
+          roleEl.className = "role";
+          roleEl.textContent = "tool result";
+          div.appendChild(roleEl);
+          let parsed;
+          try { parsed = JSON.parse(msg.content); } catch { parsed = msg.content; }
+          if (Array.isArray(parsed)) {
+            for (const m of parsed) {
+              const item = document.createElement("div");
+              item.style.cssText = "margin-bottom:0.75rem; border-left:3px solid #ccc; padding-left:0.5rem;";
+              const meta = document.createElement("div");
+              meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
+              meta.textContent = `#${m.display_recipient} > ${m.subject}`;
+              const body = document.createElement("div");
+              body.style.whiteSpace = "pre-wrap";
+              body.textContent = m.content;
+              item.appendChild(meta);
+              item.appendChild(body);
+              div.appendChild(item);
+            }
+          } else {
+            const pre = document.createElement("pre");
+            pre.textContent = typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+            div.appendChild(pre);
+          }
+        } else if (msg.role === "assistant" && msg.content) {
+          div.className = "message assistant final-answer";
+          const roleEl = document.createElement("div");
+          roleEl.className = "role";
+          roleEl.textContent = "answer";
+          div.appendChild(roleEl);
+
+          let sections;
+          try { sections = JSON.parse(msg.content); } catch { sections = null; }
+
+          if (Array.isArray(sections)) {
+            for (const section of sections) {
+              if (section.text) {
+                const p = document.createElement("p");
+                p.style.cssText = "margin:0 0 0.75rem 0; white-space:pre-wrap;";
+                p.textContent = section.text;
+                div.appendChild(p);
+              } else if (Array.isArray(section.message_ids)) {
+                const citeBlock = document.createElement("div");
+                citeBlock.style.cssText = "margin-bottom:0.75rem;";
+                for (const id of section.message_ids) {
+                  const m = messageById[id];
+                  if (!m) continue;
+                  const item = document.createElement("div");
+                  item.style.cssText = "margin-bottom:0.5rem; border-left:3px solid #4caf50; padding-left:0.75rem; background:#f8fff8; border-radius:0 4px 4px 0;";
+                  const meta = document.createElement("div");
+                  meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
+                  meta.textContent = `#${m.display_recipient} > ${m.subject}`;
+                  const body = document.createElement("div");
+                  body.style.cssText = "font-size:0.9rem; white-space:pre-wrap;";
+                  body.textContent = m.content;
+                  item.appendChild(meta);
+                  item.appendChild(body);
+                  citeBlock.appendChild(item);
+                }
+                div.appendChild(citeBlock);
+              }
+            }
+          } else {
+            const p = document.createElement("p");
+            p.style.cssText = "margin:0; white-space:pre-wrap;";
+            p.textContent = msg.content;
+            div.appendChild(p);
+          }
+        }
+
+        if (div.className) convEl.appendChild(div);
+      }
+    }
 
     async function load() {
       const statusEl = document.getElementById("status");
@@ -46,130 +168,22 @@
       const convEl = document.getElementById("conversation");
 
       try {
+        if (convId) {
+          statusEl.textContent = "";
+          const res = await fetch(`/conversation-data/${encodeURIComponent(convId)}`);
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          const row = await res.json();
+          document.getElementById("question").textContent = row.query;
+          document.title = `${row.query} — Ask RC Zulip`;
+          render(row.messages, row.final_answer, convEl);
+          return;
+        }
         const res = await fetch(`/ask?q=${encodeURIComponent(q)}`);
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         statusEl.textContent = "";
-        document.getElementById("view-toggle").style.display = "";
-
-        const debugEl = document.getElementById("conversation-debug");
-        const allMessages = data.messages.map(m => {
-          if (m.role === "tool") {
-            let parsed; try { parsed = JSON.parse(m.content); } catch { parsed = m.content; }
-            return { ...m, content: parsed };
-          }
-          return m;
-        });
-        const pre = document.createElement("pre");
-        pre.style.cssText = "background:#f4f4f4; padding:1rem; border-radius:6px; overflow:auto; font-size:0.8rem; white-space:pre-wrap;";
-        pre.textContent = JSON.stringify(allMessages, null, 2);
-        debugEl.appendChild(pre);
-
-        // Build a map of message id → message from all tool results
-        const messageById = {};
-        for (const msg of data.messages) {
-          if (msg.role === "tool") {
-            let parsed; try { parsed = JSON.parse(msg.content); } catch { parsed = null; }
-            if (Array.isArray(parsed)) {
-              for (const m of parsed) messageById[m.id] = m;
-            }
-          }
-        }
-
-        for (const msg of data.messages) {
-          if (msg.role === "system" || msg.role === "user") continue;
-
-          const div = document.createElement("div");
-
-          if (msg.role === "assistant" && msg.tool_calls) {
-            div.className = "message tool";
-            const roleEl = document.createElement("div");
-            roleEl.className = "role";
-            roleEl.textContent = "tool calls";
-            div.appendChild(roleEl);
-            for (const tc of msg.tool_calls) {
-              const args = JSON.parse(tc.function.arguments);
-              const p = document.createElement("p");
-              p.className = "tool-call";
-              p.innerHTML = `<code>${tc.function.name}</code> — ${JSON.stringify(args)}`;
-              div.appendChild(p);
-            }
-          } else if (msg.role === "tool") {
-            div.className = "message tool";
-            const roleEl = document.createElement("div");
-            roleEl.className = "role";
-            roleEl.textContent = "tool result";
-            div.appendChild(roleEl);
-            let parsed;
-            try { parsed = JSON.parse(msg.content); } catch { parsed = msg.content; }
-            if (Array.isArray(parsed)) {
-              for (const m of parsed) {
-                const item = document.createElement("div");
-                item.style.cssText = "margin-bottom:0.75rem; border-left:3px solid #ccc; padding-left:0.5rem;";
-                const meta = document.createElement("div");
-                meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
-                meta.textContent = `#${m.display_recipient} > ${m.subject}`;
-                const body = document.createElement("div");
-                body.style.whiteSpace = "pre-wrap";
-                body.textContent = m.content;
-                item.appendChild(meta);
-                item.appendChild(body);
-                div.appendChild(item);
-              }
-            } else {
-              const pre = document.createElement("pre");
-              pre.textContent = typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
-              div.appendChild(pre);
-            }
-          } else if (msg.role === "assistant" && msg.content) {
-            div.className = "message assistant final-answer";
-            const roleEl = document.createElement("div");
-            roleEl.className = "role";
-            roleEl.textContent = "answer";
-            div.appendChild(roleEl);
-
-            let sections;
-            try { sections = JSON.parse(msg.content); } catch { sections = null; }
-
-            if (Array.isArray(sections)) {
-              for (const section of sections) {
-                if (section.text) {
-                  const p = document.createElement("p");
-                  p.style.cssText = "margin:0 0 0.75rem 0; white-space:pre-wrap;";
-                  p.textContent = section.text;
-                  div.appendChild(p);
-                } else if (Array.isArray(section.message_ids)) {
-                  const citeBlock = document.createElement("div");
-                  citeBlock.style.cssText = "margin-bottom:0.75rem;";
-                  for (const id of section.message_ids) {
-                    const m = messageById[id];
-                    if (!m) continue;
-                    const item = document.createElement("div");
-                    item.style.cssText = "margin-bottom:0.5rem; border-left:3px solid #4caf50; padding-left:0.75rem; background:#f8fff8; border-radius:0 4px 4px 0;";
-                    const meta = document.createElement("div");
-                    meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
-                    meta.textContent = `#${m.display_recipient} > ${m.subject}`;
-                    const body = document.createElement("div");
-                    body.style.cssText = "font-size:0.9rem; white-space:pre-wrap;";
-                    body.textContent = m.content;
-                    item.appendChild(meta);
-                    item.appendChild(body);
-                    citeBlock.appendChild(item);
-                  }
-                  div.appendChild(citeBlock);
-                }
-              }
-            } else {
-              // Fallback: render as plain text if JSON parsing failed
-              const p = document.createElement("p");
-              p.style.cssText = "margin:0; white-space:pre-wrap;";
-              p.textContent = msg.content;
-              div.appendChild(p);
-            }
-          }
-
-          if (div.className) convEl.appendChild(div);
-        }
+        history.replaceState(null, "", `/conversation?id=${data.id}`);
+        render(data.messages, data.final_answer, convEl);
       } catch (err) {
         statusEl.textContent = "";
         errorEl.textContent = `Error: ${err.message}`;
