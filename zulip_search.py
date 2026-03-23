@@ -20,7 +20,7 @@ def search_messages(query: str) -> dict:
                 {"operator": "search", "operand": query},
             ],
             "anchor": "newest",
-            "num_before": 20,
+            "num_before": 100,
             "num_after": 0,
         },
     )
