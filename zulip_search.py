@@ -52,7 +52,7 @@ CHECKIN_STREAMS = {"checkins", "alumni checkins", "consciousness"}
 
 def anonymize_checkins(message: dict) -> dict:
     if message.get("display_recipient", "").lower() in CHECKIN_STREAMS:
-        return {**message, "subject": ""}
+        return {**message, "subject": "", "match_subject": ""}
     return message
 
 
