@@ -1,3 +1,4 @@
+import logging
 import os
 
 import uvicorn
@@ -10,6 +11,7 @@ import db
 from agent import run_agent
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")

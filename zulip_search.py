@@ -1,8 +1,12 @@
+import logging
 import os
+from datetime import datetime, timezone
 
 import zulip
 
 from anonymize import anonymize_message
+
+logger = logging.getLogger(__name__)
 
 
 def search_messages(query: str) -> dict:
@@ -46,7 +50,15 @@ def messages_for_agent(*queries: str) -> list[dict]:
         response = search_messages(query)
         if response.get("result") != "success":
             continue
-        for message in anonymize_messages(response.get("messages", [])):
+        batch = anonymize_messages(response.get("messages", []))
+        if batch:
+            earliest = min(m["timestamp"] for m in batch)
+            latest = max(m["timestamp"] for m in batch)
+            fmt = lambda ts: datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+            logger.info("search %r: %d results, %s – %s", query, len(batch), fmt(earliest), fmt(latest))
+        else:
+            logger.info("search %r: 0 results", query)
+        for message in batch:
             if message["id"] not in seen_ids:
                 seen_ids.add(message["id"])
                 results.append(message)
