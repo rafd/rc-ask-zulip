@@ -20,9 +20,10 @@ def search_messages(query: str) -> dict:
         method="GET",
         request={
             "narrow": [
-                {"operator": "is", "operand": "dm", "negated": True},
+                {"operator":"channels","operand":"public"},
                 {"operator": "search", "operand": query},
             ],
+            "allow_empty_topic_name": True,
             "anchor": "newest",
             "num_before": 100,
             "num_after": 0,
