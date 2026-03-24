@@ -30,10 +30,10 @@ def search_messages(query: str) -> dict:
         },
     )
 
-
 def prepare_for_agent(message: dict) -> dict:
     return {
         "id": message["id"],
+        "timestamp": message["timestamp"],
         "content": message["content"],
         "subject": message["subject"],
         "display_recipient": message["display_recipient"],
@@ -63,6 +63,7 @@ def messages_for_agent(*queries: str) -> list[dict]:
             if message["id"] not in seen_ids:
                 seen_ids.add(message["id"])
                 results.append(message)
+    results.sort(key=lambda m: m["timestamp"])
     return results
 
 
