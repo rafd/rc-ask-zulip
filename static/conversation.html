@@ -116,7 +116,10 @@
           div.appendChild(roleEl);
 
           let sections;
-          try { sections = JSON.parse(msg.content); } catch { sections = null; }
+          try {
+            const parsed = JSON.parse(msg.content);
+            sections = Array.isArray(parsed) ? parsed : parsed?.sections ?? null;
+          } catch { sections = null; }
 
           if (Array.isArray(sections)) {
             for (const section of sections) {

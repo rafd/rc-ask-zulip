@@ -8,16 +8,54 @@ from zulip_search import messages_for_agent
 SYSTEM_PROMPT = """\
 You are a helpful assistant that answers questions about what Recurse Center participants think about topics.
 You have access to a tool that searches Zulip conversations. Use it one or more times to gather relevant messages,
-then synthesize a concise summary answering the user's question.
+then synthesize a concise summary answering the user's question. If you don't get a lot of messages, use shorter queries.
 
-Your final response MUST be valid JSON: an array of section objects, each one of:
+Your final response MUST be valid JSON: an object with a "sections" key containing an array of section objects, each one of:
   {"text": "narrative text here"}
   {"message_ids": [123, 456, 789]}
 
 Use "text" sections for your own narrative and "message_ids" sections to cite the specific Zulip messages
 that support the adjacent text. Interleave them so citations appear next to the relevant passage.
-Do not include any content outside the JSON array.
 """
+
+RESPONSE_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "answer_sections",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {"text": {"type": "string"}},
+                                "required": ["text"],
+                                "additionalProperties": False,
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "message_ids": {
+                                        "type": "array",
+                                        "items": {"type": "integer"},
+                                    }
+                                },
+                                "required": ["message_ids"],
+                                "additionalProperties": False,
+                            },
+                        ]
+                    },
+                }
+            },
+            "required": ["sections"],
+            "additionalProperties": False,
+        },
+    },
+}
 
 TOOL_SCHEMA = {
     "type": "function",
@@ -69,6 +107,7 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
             messages=messages,
             tools=[TOOL_SCHEMA],
             tool_choice="auto",
+            response_format=RESPONSE_SCHEMA,
         )
         choice = response.choices[0]
         messages.append(choice.message.model_dump(exclude_unset=False))
@@ -84,5 +123,5 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
                     "content": result,
                 })
         else:
-            final_answer = choice.message.content
+            final_answer = choice.message.content or ""
             return messages, final_answer
