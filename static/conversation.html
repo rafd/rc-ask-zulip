@@ -105,7 +105,24 @@
         const div = document.createElement("div");
 
         if (msg.role === "assistant" && msg.tool_calls) {
-          continue;
+          const queries = msg.tool_calls.flatMap(tc => {
+            try { return JSON.parse(tc.function.arguments).queries || []; } catch { return []; }
+          });
+          if (queries.length === 0) continue;
+          div.className = "message tool";
+          const roleEl = document.createElement("div");
+          roleEl.className = "role";
+          roleEl.textContent = "searched";
+          div.appendChild(roleEl);
+          const tagLine = document.createElement("div");
+          tagLine.style.cssText = "display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.25rem;";
+          for (const q of queries) {
+            const tag = document.createElement("span");
+            tag.style.cssText = "background:#e8e8e8; border-radius:3px; padding:0.15em 0.5em; font-size:0.85rem; font-family:monospace;";
+            tag.textContent = q;
+            tagLine.appendChild(tag);
+          }
+          div.appendChild(tagLine);
         } else if (msg.role === "tool") {
           continue;
         } else if (msg.role === "assistant" && msg.content) {
