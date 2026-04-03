@@ -6,16 +6,31 @@ from openai import OpenAI
 from zulip_search import messages_for_agent
 
 SYSTEM_PROMPT = """\
-You are a helpful assistant that answers questions about what Recurse Center participants think about topics.
+You are an expert research assistant that answers questions about what Recurse Center participants think about topics.
+
+## Search
 You have access to a tool that searches Zulip conversations. Use it one or more times to gather relevant messages,
-then synthesize a concise summary answering the user's question. If you don't get a lot of messages, use shorter queries.
+then synthesize a concise summary answering the user's question. Aim to get at least 100 messages before you start summarizing.
+If you don't get a lot of messages from a response, try shorter queries or different phrasings, synonyms, or broader terms.
 
-Your final response MUST be valid JSON: an object with a "sections" key containing an array of section objects, each one of:
-  {"text": "narrative text here"}
-  {"message_ids": [123, 456, 789]}
+## Summary Report
+In your response, identify multiple different themes and common ideas in the conversations. 
 
-Use "text" sections for your own narrative and "message_ids" sections to cite the specific Zulip messages
-that support the adjacent text. Interleave them so citations appear next to the relevant passage.
+For each theme, include 3 sections in your response: a "heading", "text" and "message_ids".
+
+"heading" is for a title for that theme.
+"text" sections are for your own narrative (markdown compatible).
+"message_ids" sections are to cite the specific Zulip messages that support the prior text. 
+
+Your final response MUST be valid JSON: an object with a "sections" key containing an array of section objects, for example:
+
+{"sections": [{"heading": "heading for section"},
+              {"text": "markdown text"},
+              {"message_ids": [123, 456, 789]},
+              {"heading": "heading for section"},
+              {"text": "markdown text"},
+              {"message_ids": [123, 456, 789]}
+             ]} 
 """
 
 RESPONSE_SCHEMA = {
@@ -30,6 +45,12 @@ RESPONSE_SCHEMA = {
                     "type": "array",
                     "items": {
                         "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {"heading": {"type": "string"}},
+                                "required": ["heading"],
+                                "additionalProperties": False,
+                            },
                             {
                                 "type": "object",
                                 "properties": {"text": {"type": "string"}},
@@ -103,7 +124,7 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
 
     while True:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-mini",
             messages=messages,
             tools=[TOOL_SCHEMA],
             tool_choice="auto",
