@@ -29,6 +29,21 @@
     .spoiler-toggle { font-size: 0.75rem; color: #888; }
     .spoiler-content { padding: 0.75rem; display: none; }
     .spoiler-content.open { display: block; }
+    .cite-details { margin-bottom: 0.75rem; border: 1px solid #c8e6c9; border-radius: 8px; overflow: hidden; background: #fafefa; }
+    .cite-summary { list-style: none; cursor: pointer; padding: 0.55rem 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.9rem; color: #2e7d32; font-weight: 500; user-select: none; background: linear-gradient(180deg, #e8f5e9 0%, #dff3e0 100%); transition: background 0.15s ease; }
+    .cite-summary::-webkit-details-marker { display: none; }
+    .cite-summary:hover { background: #d4ecd6; }
+    .cite-details[open] > .cite-summary { border-bottom: 1px solid #c8e6c9; }
+    .cite-summary-text { flex: 1; }
+    .cite-summary-chevron { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; font-size: 0.85rem; font-weight: 700; line-height: 1; color: #43a047; transition: transform 0.2s ease; }
+    .cite-details[open] .cite-summary-chevron { transform: rotate(90deg); }
+    .cite-details-inner { padding: 0.65rem 0.75rem 0.35rem; background: #fafefa; }
+    .cite-item { margin-bottom: 0.5rem; border-left: 3px solid #4caf50; padding-left: 0.75rem; background: #f8fff8; border-radius: 0 4px 4px 0; }
+    .cite-meta { font-size: 0.75rem; color: #888; margin-bottom: 0.2rem; }
+    .cite-body { font-size: 0.9rem; max-height: 6rem; overflow: hidden; position: relative; }
+    .cite-body.is-expanded { max-height: none; overflow: visible; }
+    .cite-expand { display: none; font-size: 0.75rem; color: #4caf50; background: none; border: none; padding: 0.25rem 0; cursor: pointer; }
+    .cite-expand.is-visible { display: block; }
   </style>
 </head>
 <body>
@@ -153,38 +168,54 @@
                 p.textContent = section.text;
                 div.appendChild(p);
               } else if (Array.isArray(section.message_ids)) {
-                const citeBlock = document.createElement("div");
-                citeBlock.style.cssText = "margin-bottom:0.75rem;";
+                const inner = document.createElement("div");
+                inner.className = "cite-details-inner";
                 for (const id of section.message_ids) {
                   const m = messageById[id];
                   if (!m) continue;
                   const item = document.createElement("div");
-                  item.style.cssText = "margin-bottom:0.5rem; border-left:3px solid #4caf50; padding-left:0.75rem; background:#f8fff8; border-radius:0 4px 4px 0;";
+                  item.className = "cite-item";
                   const meta = document.createElement("div");
-                  meta.style.cssText = "font-size:0.75rem; color:#888; margin-bottom:0.2rem;";
+                  meta.className = "cite-meta";
                   const ts = m.timestamp ? new Date(m.timestamp * 1000).toLocaleString() : "";
                   meta.textContent = `#${m.display_recipient} > ${m.subject}${ts ? " · " + ts : ""}`;
                   const body = document.createElement("div");
-                  body.style.cssText = "font-size:0.9rem; max-height:6rem; overflow:hidden; position:relative;";
+                  body.className = "cite-body";
                   body.innerHTML = m.content;
                   initSpoilers(body);
                   item.appendChild(meta);
                   item.appendChild(body);
                   const expand = document.createElement("button");
+                  expand.type = "button";
+                  expand.className = "cite-expand";
                   expand.textContent = "Show more";
-                  expand.style.cssText = "display:none; font-size:0.75rem; color:#4caf50; background:none; border:none; padding:0.25rem 0; cursor:pointer;";
                   expand.onclick = () => {
-                    body.style.maxHeight = "";
-                    body.style.overflow = "";
-                    expand.style.display = "none";
+                    body.classList.add("is-expanded");
+                    expand.classList.remove("is-visible");
                   };
                   item.appendChild(expand);
                   requestAnimationFrame(() => {
-                    if (body.scrollHeight > body.clientHeight) expand.style.display = "block";
+                    if (body.scrollHeight > body.clientHeight) expand.classList.add("is-visible");
                   });
-                  citeBlock.appendChild(item);
+                  inner.appendChild(item);
                 }
-                div.appendChild(citeBlock);
+                if (inner.childElementCount === 0) continue;
+                const details = document.createElement("details");
+                details.className = "cite-details";
+                const summary = document.createElement("summary");
+                summary.className = "cite-summary";
+                const sumLabel = document.createElement("span");
+                sumLabel.className = "cite-summary-text";
+                sumLabel.textContent = "See what people are saying";
+                const chevron = document.createElement("span");
+                chevron.className = "cite-summary-chevron";
+                chevron.setAttribute("aria-hidden", "true");
+                chevron.textContent = ">";
+                summary.appendChild(sumLabel);
+                summary.appendChild(chevron);
+                details.appendChild(summary);
+                details.appendChild(inner);
+                div.appendChild(details);
               }
             }
           } else {
