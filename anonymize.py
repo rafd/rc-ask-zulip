@@ -19,6 +19,11 @@ def anonymize_message_content(content: str) -> str:
         content,
     )
     content = re.sub(
+        r'<span class="user-mention[^"]*" data-user-email="[^"]*"[^>]*>@?[^<]*</span>',
+        "@user_unknown",
+        content,
+    )
+    content = re.sub(
         rf'<a href="{_checkin_channel_url_pattern()}[^"]*">([^<]*)</a>',
         r'\1',
         content,
