@@ -14,12 +14,12 @@ then synthesize a concise summary answering the user's question. Aim to get at l
 If you don't get a lot of messages from a response, try shorter queries or different phrasings, synonyms, or broader terms.
 
 ## Summary Report
-In your response, identify multiple different themes and common ideas in the conversations. 
+In your response, identify multiple different themes (MINIMUM 3 themes) and common ideas in the conversations. 
 
 For each theme, include 3 sections in your response: a "heading", "text" and "message_ids".
 
 "heading" is for a title for that theme.
-"text" sections are for your own narrative (markdown compatible).
+"text" sections are for your own executive summary (markdown compatible) be very concise and use bullet points. Keep each bullet point short and succinct.
 "message_ids" sections are to cite the specific Zulip messages that support the prior text. 
 
 Your final response MUST be valid JSON: an object with a "sections" key containing an array of section objects, for example:

@@ -44,6 +44,14 @@
     .cite-body.is-expanded { max-height: none; overflow: visible; }
     .cite-expand { display: none; font-size: 0.75rem; color: #4caf50; background: none; border: none; padding: 0.25rem 0; cursor: pointer; }
     .cite-expand.is-visible { display: block; }
+    .answer-text { margin: 0 0 0.75rem 0; }
+    .answer-text > .answer-text-para { margin: 0 0 0.5rem 0; white-space: pre-wrap; }
+    .answer-text > .answer-text-para:last-child { margin-bottom: 0; }
+    .answer-text > .answer-text-list { margin: 0.5rem 0; padding-left: 1.35rem; list-style-type: disc; }
+    .answer-text > .answer-text-list:first-child { margin-top: 0; }
+    .answer-text > .answer-text-list:last-child { margin-bottom: 0; }
+    .answer-text > .answer-text-list li { margin-bottom: 0.35rem; }
+    .answer-text > .answer-text-list li:last-child { margin-bottom: 0; }
   </style>
 </head>
 <body>
@@ -64,6 +72,49 @@
     const convId = params.get("id") || "";
     document.getElementById("question").textContent = q;
     document.title = q ? `${q} — Ask RC Zulip` : "Ask RC Zulip";
+
+    const MD_BULLET_LINE = /^\s*[-*+]\s+(.*)$/;
+
+    /** Plain-text + markdown-style bullets (-, *, +) → <p> and <ul><li> (safe: text nodes only). */
+    function appendAnswerTextBlocks(container, text) {
+      const lines = String(text).replace(/\r\n/g, "\n").split("\n");
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        if (line.trim() === "") {
+          i++;
+          continue;
+        }
+        if (MD_BULLET_LINE.test(line)) {
+          const ul = document.createElement("ul");
+          ul.className = "answer-text-list";
+          while (i < lines.length) {
+            const m = MD_BULLET_LINE.exec(lines[i]);
+            if (!m) break;
+            const li = document.createElement("li");
+            li.textContent = m[1];
+            ul.appendChild(li);
+            i++;
+          }
+          container.appendChild(ul);
+          continue;
+        }
+        const paraLines = [];
+        while (i < lines.length) {
+          const l = lines[i];
+          if (l.trim() === "") break;
+          if (MD_BULLET_LINE.test(l)) break;
+          paraLines.push(l);
+          i++;
+        }
+        if (paraLines.length) {
+          const p = document.createElement("p");
+          p.className = "answer-text-para";
+          p.textContent = paraLines.join("\n");
+          container.appendChild(p);
+        }
+      }
+    }
 
     function initSpoilers(container) {
       for (const block of container.querySelectorAll(".spoiler-block")) {
@@ -163,10 +214,11 @@
                 h.textContent = section.heading.trim();
                 div.appendChild(h);
               } else if (section.text) {
-                const p = document.createElement("p");
-                p.style.cssText = "margin:0 0 0.75rem 0; white-space:pre-wrap;";
-                p.textContent = section.text;
-                div.appendChild(p);
+                const wrap = document.createElement("div");
+                wrap.className = "answer-text";
+                appendAnswerTextBlocks(wrap, section.text);
+                if (!wrap.firstChild) continue;
+                div.appendChild(wrap);
               } else if (Array.isArray(section.message_ids)) {
                 const inner = document.createElement("div");
                 inner.className = "cite-details-inner";
