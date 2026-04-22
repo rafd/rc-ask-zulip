@@ -8,7 +8,9 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Checking if the ollama command is available - otherwise run the setup_ollama.sh script to install it
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 if ! command -v ollama >/dev/null 2>&1; then
   if [[ -f "$ROOT/setup_ollama.sh" ]]; then
     echo "ollama not found; running setup_ollama.sh (Homebrew + Brewfile)…" >&2
@@ -20,10 +22,15 @@ if ! command -v ollama >/dev/null 2>&1; then
   fi
 fi
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Checking if the ollama-only flag is set
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 ollama_only=0
 [[ "${1:-}" == "--ollama-only" ]] && { ollama_only=1; shift; }
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Loading the environment variables from the .env file
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 if [[ -f .env ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -31,7 +38,9 @@ if [[ -f .env ]]; then
   set +a
 fi
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Starting the ollama server
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 OLLAMA_PID=""
 cleanup() {
   if [[ -n "${OLLAMA_PID:-}" ]] && kill -0 "$OLLAMA_PID" 2>/dev/null; then
@@ -39,6 +48,7 @@ cleanup() {
   fi
   OLLAMA_PID=""
 }
+
 
 # Checking if the ollama server is ready
 ollama_ready() { curl -sf "http://127.0.0.1:11434/api/tags" &>/dev/null; }
@@ -82,13 +92,22 @@ EOF
   fi
 fi
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# If the ollama-only flag is set, exit after starting the ollama server - do not start the Open WebUI
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 if [[ "$ollama_only" -eq 1 ]]; then
   echo "✅ Ollama is up — http://127.0.0.1:11434"
   exit 0
 fi
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Checking if the uv command is available - otherwise exit with an error
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 command -v uv >/dev/null 2>&1 || { echo "error: uv is not installed. See https://docs.astral.sh/uv/" >&2; exit 1; }
 
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Starting the Open WebUI
+#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 echo "🌐 Starting Open WebUI — http://127.0.0.1:8080/"
 export DATA_DIR="${DATA_DIR:-$HOME/.open-webui}"
 uv run --with open-webui --with greenlet open-webui serve
