@@ -8,19 +8,18 @@ logger = logging.getLogger(__name__)
 
 from zulip_search import messages_for_agent
 
-DEFAULT_AI_BASE_URL = "http://127.0.0.1:11434/v1"
-DEFAULT_OPENAI_API_KEY = "ollama"
-DEFAULT_OPENAI_MODEL = "llama3.1"
-
 
 def _openai_client() -> OpenAI:
-    base_url = os.environ.get("OPENAI_BASE_URL", DEFAULT_AI_BASE_URL).rstrip("/")
-    api_key = os.environ.get("OPENAI_API_KEY", DEFAULT_OPENAI_API_KEY)
+    LOCAL_OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1"
+    LOCAL_OLLAMA_API_KEY = "ollama"
+    base_url = os.environ.get("OPENAI_BASE_URL", LOCAL_OLLAMA_BASE_URL).rstrip("/")
+    api_key = os.environ.get("OPENAI_API_KEY", LOCAL_OLLAMA_API_KEY)
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
 def _chat_model() -> str:
-    return os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
+    LOCAL_OLLAMA_MODEL = "llama3.1"
+    return os.environ.get("OPENAI_MODEL", LOCAL_OLLAMA_MODEL)
 
 SYSTEM_PROMPT = """\
 You are an expert research assistant that answers questions about what Recurse Center participants think about topics.
