@@ -8,6 +8,9 @@ from anonymize import anonymize_message
 
 logger = logging.getLogger(__name__)
 
+# Max messages returned per search query (Zulip API num_before).
+ZULIP_NUM_BEFORE = 30
+
 
 def search_messages(query: str) -> dict:
     client = zulip.Client(
@@ -25,7 +28,7 @@ def search_messages(query: str) -> dict:
             ],
             "allow_empty_topic_name": True,
             "anchor": "newest",
-            "num_before": 100,
+            "num_before": ZULIP_NUM_BEFORE,
             "num_after": 0,
         },
     )

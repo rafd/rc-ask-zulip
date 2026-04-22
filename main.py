@@ -11,7 +11,18 @@ import db
 from agent import run_agent
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+
+_log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, None)
+if not isinstance(_log_level, int):
+    _log_level_name = "INFO"
+    _log_level = logging.INFO
+logging.basicConfig(
+    level=_log_level,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,
+)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -52,4 +63,8 @@ def conversation_data(conv_id: int):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", reload=True)
+    uvicorn.run(
+        "main:app",
+        reload=True,
+        log_level=_log_level_name.lower(),
+    )

@@ -1,36 +1,50 @@
 import json
+import logging
 import os
 
 from openai import OpenAI
 
+logger = logging.getLogger(__name__)
+
 from zulip_search import messages_for_agent
+
+DEFAULT_AI_BASE_URL = "http://127.0.0.1:11434/v1"
+DEFAULT_OPENAI_API_KEY = "ollama"
+DEFAULT_OPENAI_MODEL = "llama3.1"
+
+
+def _openai_client() -> OpenAI:
+    base_url = os.environ.get("OPENAI_BASE_URL", DEFAULT_AI_BASE_URL).rstrip("/")
+    api_key = os.environ.get("OPENAI_API_KEY", DEFAULT_OPENAI_API_KEY)
+    return OpenAI(api_key=api_key, base_url=base_url)
+
+
+def _chat_model() -> str:
+    return os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
 
 SYSTEM_PROMPT = """\
 You are an expert research assistant that answers questions about what Recurse Center participants think about topics.
 
 ## Search
 You have access to a tool that searches Zulip conversations. Use it one or more times to gather relevant messages,
-then synthesize a concise summary answering the user's question. Aim to get at least 100 messages before you start summarizing.
-If you don't get a lot of messages from a response, try shorter queries or different phrasings, synonyms, or broader terms.
+then synthesize a concise summary answering the user's question. Prefer quality over quantity: a few dozen on-topic messages are usually enough.
+If a search returns few results, try shorter queries or different phrasings, synonyms, or broader terms.
 
 ## Summary Report
 In your response, identify multiple different themes (MINIMUM 3 themes) and common ideas in the conversations. 
 
-For each theme, include 3 sections in your response: a "heading", "text" and "message_ids".
+For each theme, use one object with three fields: "heading", "text", and "message_ids".
 
-"heading" is for a title for that theme.
-"text" sections are for your own executive summary (markdown compatible) be very concise and use bullet points. Keep each bullet point short and succinct.
-"message_ids" sections are to cite the specific Zulip messages that support the prior text. 
+"heading" is the title for that theme.
+"text" is your executive summary (markdown compatible): be very concise and use bullet points. Keep each bullet short.
+"message_ids" lists the Zulip message ids that support the text (use as citations).
 
-Your final response MUST be valid JSON: an object with a "sections" key containing an array of section objects, for example:
+Your final response MUST be valid JSON: an object with a "sections" key whose value is an array of theme objects (each theme has all three fields), for example:
 
-{"sections": [{"heading": "heading for section"},
-              {"text": "markdown text"},
-              {"message_ids": [123, 456, 789]},
-              {"heading": "heading for section"},
-              {"text": "markdown text"},
-              {"message_ids": [123, 456, 789]}
-             ]} 
+{"sections": [
+  {"heading": "First theme", "text": "- point one\\n- point two", "message_ids": [123, 456]},
+  {"heading": "Second theme", "text": "- another idea", "message_ids": [789]}
+]}
 """
 
 RESPONSE_SCHEMA = {
@@ -44,31 +58,17 @@ RESPONSE_SCHEMA = {
                 "sections": {
                     "type": "array",
                     "items": {
-                        "anyOf": [
-                            {
-                                "type": "object",
-                                "properties": {"heading": {"type": "string"}},
-                                "required": ["heading"],
-                                "additionalProperties": False,
+                        "type": "object",
+                        "properties": {
+                            "heading": {"type": "string"},
+                            "text": {"type": "string"},
+                            "message_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
                             },
-                            {
-                                "type": "object",
-                                "properties": {"text": {"type": "string"}},
-                                "required": ["text"],
-                                "additionalProperties": False,
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "message_ids": {
-                                        "type": "array",
-                                        "items": {"type": "integer"},
-                                    }
-                                },
-                                "required": ["message_ids"],
-                                "additionalProperties": False,
-                            },
-                        ]
+                        },
+                        "required": ["heading", "text", "message_ids"],
+                        "additionalProperties": False,
                     },
                 }
             },
@@ -115,7 +115,8 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
     message_log contains all messages exchanged, including tool calls and results.
     max_messages limits the number of assistant+tool messages before forcing a final answer.
     """
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = _openai_client()
+    model = _chat_model()
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": question},
@@ -124,13 +125,26 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
 
     while True:
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=model,
             messages=messages,
-            tools=[TOOL_SCHEMA],
-            tool_choice="auto",
-            response_format=RESPONSE_SCHEMA,
+            # tools=[TOOL_SCHEMA],
+            # tool_choice="auto",
+            # response_format=RESPONSE_SCHEMA,
         )
+        logger.info(
+            "agent turn %d: response=%s",
+            agent_message_count + 1,
+            response,
+        )
+
         choice = response.choices[0]
+        n_tools = len(choice.message.tool_calls or [])
+        logger.info(
+            "agent turn %d: finish_reason=%s tool_calls=%d",
+            agent_message_count + 1,
+            choice.finish_reason,
+            n_tools,
+        )
         messages.append(choice.message.model_dump(exclude_unset=False))
         agent_message_count += 1
 

@@ -6,8 +6,21 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Python 3.12+ (see `.python-version`)
+- [Ollama](https://ollama.com/) running locally (default), **or** any other **OpenAI-compatible** HTTP API (set `OPENAI_BASE_URL` / `OPENAI_API_KEY`)
 - A Zulip API key with access to the RC organization’s public streams
-- An OpenAI API key
+
+### Ollama (default local LLM)
+
+- **macOS (Homebrew):** from the repo root, run `brew bundle` (see [`Brewfile`](Brewfile)), or install from [ollama.com/download](https://ollama.com/download).
+- **Optional (manual):** [`docker-compose.yml`](docker-compose.yml) can run Ollama in Docker if you set that up yourself; **`run.sh` does not use Docker**.
+- **`./run.sh run`** tries to start Ollama if nothing answers on port **11434**: it runs `ollama serve` in the background (if the CLI is installed) or on macOS tries `open -a Ollama`. If this script started `ollama serve`, **stopping the dev server** (Ctrl+C or exit) **stops that `ollama serve` process**. If only the macOS app was used, the app keeps running. Logs from script-started `ollama serve` go to `.ollama-serve.log` (gitignored). Set **`OLLAMA_AUTOSTART=0`** to require Ollama already running instead.
+- Pull a model that matches `OPENAI_MODEL` (default `llama3.1`), for example:
+
+  ```bash
+  ./run.sh pull-model
+  ```
+
+  or: `ollama pull llama3.1`
 
 ## Setup
 
@@ -16,36 +29,59 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 2. Create a `.env` file in the project root:
 
    ```env
-   OPENAI_API_KEY=sk-...
    ZULIP_SITE=your-org.zulipchat.com
    ZULIP_EMAIL=your-bot-or-account@example.com
    ZULIP_API_KEY=...
    ```
 
-3. Install dependencies:
+   Optional LLM overrides (defaults work with local Ollama):
 
-   ```bash
-   ./dev.sh setup
+   ```env
+   OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+   OPENAI_API_KEY=ollama
+   OPENAI_MODEL=llama3.1
    ```
 
-   Or: `uv sync`
+   For a remote OpenAI-compatible endpoint, set `OPENAI_BASE_URL` and a real `OPENAI_API_KEY`, and use `SKIP_OLLAMA_CHECK=1 ./run.sh run` if the server is not on localhost:11434.
+
+   To disable auto-start and require Ollama already listening locally: `OLLAMA_AUTOSTART=0`.
+
+3. Install Python dependencies (includes dev tools such as pytest):
+
+   ```bash
+   ./run.sh setup
+   ```
+
+   On macOS you can also install Ollama via Homebrew in the same step:
+
+   ```bash
+   ./run.sh setup --brew
+   ```
+
+   Or: `uv sync --extra dev`
 
 ## Run
 
 ```bash
-./dev.sh run
+./run.sh run
 ```
 
-Or: `uv run python main.py`
+Or: `uv run python main.py` (bypasses `run.sh`; you must start Ollama yourself). With `./run.sh run`, use `SKIP_OLLAMA_CHECK=1` to skip the local Ollama check and auto-start (e.g. remote `OPENAI_BASE_URL`).
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Submit a question on the home page; the app searches Zulip, runs an agentic loop with GPT-4o, and shows the answer with linked message excerpts.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Submit a question on the home page; the app searches Zulip, calls the configured LLM, and shows the answer with linked message excerpts.
+
+## Tests
+
+```bash
+uv run pytest
+```
 
 ## How it works (briefly)
 
 - **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (`main.py`) serves static pages and JSON APIs.
 - **Search:** `zulip_search.py` calls Zulip’s message API with a public-channels narrow and full-text search; results are deduplicated across queries.
 - **Privacy:** `anonymize.py` strips sender identity from what the model sees and normalizes mentions (see code for check-in stream handling).
-- **Agent:** `agent.py` uses the OpenAI API (tools + structured JSON output) to run searches and produce a final answer with `message_ids` for citations.
+- **Agent:** `agent.py` uses the OpenAI Python SDK against an OpenAI-compatible API (default: Ollama at `http://127.0.0.1:11434/v1`). Tool calling and strict JSON-schema responses are optional and model-dependent.
 - **Storage:** Conversations are stored in SQLite (`conversations.db`) via `db.py`.
 
 ## API (for debugging or integrations)
@@ -68,4 +104,9 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Subm
 | `anonymize.py` | Message redaction for the model |
 | `db.py` | SQLite persistence |
 | `static/` | HTML UI |
+| `run.sh` | Local setup / Ollama preflight / dev server |
+| `Brewfile` | macOS Homebrew deps (Ollama) |
+| `docker-compose.yml` | Optional Ollama container |
 | `NOTES.md` | Product notes and future ideas |
+
+See [`STUDY_GUIDE.md`](STUDY_GUIDE.md) for a deeper walkthrough of architecture and tradeoffs.
