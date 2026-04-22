@@ -1,14 +1,6 @@
 # Existing Knowledge:
 - ✅ Tweak the prompt to have headings and bullet-point summaries
 - ✅ UI = Collapse ALL posts/references
-- ✅ RUN this thing
-
-- ✅ cursor rules and skills
-- Codex vs ClaudeCode
-    - worktrees
-- cursor tab
-
-- Xcode's thing
 - Show quotes in-line (not whole messages)
 
 - Refactor the schema to have 3 sections.

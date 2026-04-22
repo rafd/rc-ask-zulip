@@ -11,20 +11,22 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 
 ### Ollama (default local LLM)
 
-- **macOS (Homebrew):** from the repo root, run `brew bundle` (see [`Brewfile`](Brewfile)), or install from [ollama.com/download](https://ollama.com/download).
-- **Optional (manual):** [`docker-compose.yml`](docker-compose.yml) can run Ollama in Docker if you set that up yourself; **`run.sh` does not use Docker**.
-- **Open WebUI (optional):** a browser UI for chatting with the same local Ollama models—installed on the fly with **`uv`** (no Docker). With Ollama on **11434** (same as **`./run.sh run`**), run:
+- **macOS (Homebrew):** `./install.sh --brew` runs `brew bundle` (see [`Brewfile`](Brewfile)), or install from [ollama.com/download](https://ollama.com/download).
+- **Optional (manual):** [`docker-compose.yml`](docker-compose.yml) can run Ollama in Docker if you set that up yourself; the shell scripts do not start Docker.
+- **Open WebUI (optional):** browser UI for the same local Ollama models. After `./install.sh`, run:
 
   ```bash
-  ./run.sh webui
+  ./Ollama.sh
   ```
 
-  Then open [http://127.0.0.1:8080](http://127.0.0.1:8080) (default for the pip-installed server). See [Open WebUI](https://github.com/open-webui/open-webui) for env vars (for example `OLLAMA_BASE_URL`) if your Ollama URL is non-default.
-- **`./run.sh run`** tries to start Ollama if nothing answers on port **11434**: it runs `ollama serve` in the background (if the CLI is installed) or on macOS tries `open -a Ollama`. If this script started `ollama serve`, **stopping the dev server** (Ctrl+C or exit) **stops that `ollama serve` process**. If only the macOS app was used, the app keeps running. Logs from script-started `ollama serve` go to `.ollama-serve.log` (gitignored). Set **`OLLAMA_AUTOSTART=0`** to require Ollama already running instead.
-- Pull a model that matches `OPENAI_MODEL` (default `llama3.1`), for example:
+  Then open [http://127.0.0.1:8080](http://127.0.0.1:8080) (default for the PyPI server). See [Open WebUI](https://github.com/open-webui/open-webui) for env vars (for example `OLLAMA_BASE_URL`) if Ollama is not on the default URL.
+
+  If this script started `ollama serve` in the background, exiting Open WebUI (Ctrl+C) stops that process. If you used the macOS Ollama app (`open -a Ollama`), the app keeps running. Background `ollama serve` logs append to `.ollama-serve.log` (gitignored).
+
+- Pull a model that matches `OPENAI_MODEL` (default `llama3.1`):
 
   ```bash
-  ./run.sh pull-model
+  ./setup_ollama.sh
   ```
 
   or: `ollama pull llama3.1`
@@ -49,39 +51,39 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
    OPENAI_MODEL=llama3.1
    ```
 
-   For a remote OpenAI-compatible endpoint, set `OPENAI_BASE_URL` and a real `OPENAI_API_KEY`, and use `SKIP_OLLAMA_CHECK=1 ./run.sh run` if the server is not on localhost:11434.
+   For a remote OpenAI-compatible endpoint, set `OPENAI_BASE_URL` and a real `OPENAI_API_KEY`. Start Ollama (or your API) yourself before using the app when the URL points at localhost.
 
-   To disable auto-start and require Ollama already listening locally: `OLLAMA_AUTOSTART=0`.
-
-3. Install Python dependencies (includes dev tools such as pytest):
+3. Install Python dependencies:
 
    ```bash
-   ./run.sh setup
+   ./install.sh
    ```
 
    On macOS you can also install Ollama via Homebrew in the same step:
 
    ```bash
-   ./run.sh setup --brew
+   ./install.sh --brew
    ```
 
-   Or: `uv sync --extra dev`
+   Or: `uv sync`
 
 ## Run
 
 ```bash
-./run.sh run
+./run.sh
 ```
 
-Or: `uv run python main.py` (bypasses `run.sh`; you must start Ollama yourself). With `./run.sh run`, use `SKIP_OLLAMA_CHECK=1` to skip the local Ollama check and auto-start (e.g. remote `OPENAI_BASE_URL`).
-
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Submit a question on the home page; the app searches Zulip, calls the configured LLM, and shows the answer with linked message excerpts.
-
-## Tests
+Skip the Ollama bootstrap when the LLM is not local (or Ollama is already running and you want to avoid the check):
 
 ```bash
-uv run pytest
+./run.sh --no-ollama
 ```
+
+Or: `uv run python main.py` (expects a working environment and `.env` loaded by the app via `python-dotenv`). With `./run.sh`, `.env` is sourced by the shell before Python starts.
+
+**`./run.sh`** runs **`./Ollama.sh --ollama-only`** first (ensures **:11434**; may start a detached **`ollama serve`** — see **`./Ollama.sh --help`**), then **`./install.sh`** if **`.venv`** is missing, then the app. For Ollama **and** Open WebUI in one terminal, use **`./Ollama.sh`** alone (~**8080**).
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Submit a question on the home page; the app searches Zulip, calls the configured LLM, and shows the answer with linked message excerpts.
 
 ## How it works (briefly)
 
@@ -111,7 +113,10 @@ uv run pytest
 | `anonymize.py` | Message redaction for the model |
 | `db.py` | SQLite persistence |
 | `static/` | HTML UI |
-| `run.sh` | Local setup / Ollama preflight / dev server |
+| `install.sh` | `uv sync`; optional `--brew` |
+| `run.sh` | `Ollama.sh --ollama-only` unless `--no-ollama`; then `install.sh` if needed; app **:8000** |
+| `Ollama.sh` | Ollama on **:11434**; add **`--ollama-only`** to skip WebUI; default also starts Open WebUI **:8080** |
+| `setup_ollama.sh` | Optional `--brew`, then `ollama pull` for `OPENAI_MODEL` |
 | `Brewfile` | macOS Homebrew deps (Ollama) |
 | `docker-compose.yml` | Optional Ollama container |
 | `NOTES.md` | Product notes and future ideas |
