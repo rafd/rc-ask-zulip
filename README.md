@@ -13,6 +13,13 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 
 - **macOS (Homebrew):** from the repo root, run `brew bundle` (see [`Brewfile`](Brewfile)), or install from [ollama.com/download](https://ollama.com/download).
 - **Optional (manual):** [`docker-compose.yml`](docker-compose.yml) can run Ollama in Docker if you set that up yourself; **`run.sh` does not use Docker**.
+- **Open WebUI (optional):** a browser UI for chatting with the same local Ollama models—installed on the fly with **`uv`** (no Docker). With Ollama on **11434** (same as **`./run.sh run`**), run:
+
+  ```bash
+  ./run.sh webui
+  ```
+
+  Then open [http://127.0.0.1:8080](http://127.0.0.1:8080) (default for the pip-installed server). See [Open WebUI](https://github.com/open-webui/open-webui) for env vars (for example `OLLAMA_BASE_URL`) if your Ollama URL is non-default.
 - **`./run.sh run`** tries to start Ollama if nothing answers on port **11434**: it runs `ollama serve` in the background (if the CLI is installed) or on macOS tries `open -a Ollama`. If this script started `ollama serve`, **stopping the dev server** (Ctrl+C or exit) **stops that `ollama serve` process**. If only the macOS app was used, the app keeps running. Logs from script-started `ollama serve` go to `.ollama-serve.log` (gitignored). Set **`OLLAMA_AUTOSTART=0`** to require Ollama already running instead.
 - Pull a model that matches `OPENAI_MODEL` (default `llama3.1`), for example:
 

@@ -27,6 +27,14 @@ This file explains the project for someone who has never seen the codebase. Afte
 - **Tradeoffs:** Not every model supports **tools** or **strict JSON schema** the same way; behavior depends on what sits behind the URL.
 - **Analogy:** It is like using a single USB-C charger: the “socket” is OpenAI-compatible HTTP; Ollama is one device that fits that socket.
 
+### Open WebUI (optional native UI for Ollama)
+
+- **What was chosen:** **`./run.sh webui`** runs [Open WebUI](https://github.com/open-webui/open-webui) via **`uv run --with open-webui open-webui serve`**—the PyPI package, not Docker. It uses the same **`ensure_ollama_running`** behavior as **`./run.sh run`**. The upstream default URL is **http://127.0.0.1:8080**.
+- **Alternatives:** Use **Ollama’s** terminal only; run Open WebUI from a global **`pip install`**; use another chat front-end.
+- **Why:** A full chat UI makes it easy to try models and prompts alongside this app without changing **`agent.py`**, without requiring a container runtime.
+- **Tradeoffs:** First run downloads a large Python dependency tree; Open WebUI documents **Python 3.11** for some setups—this repo uses **3.12**; if something breaks, install per upstream docs.
+- **Analogy:** Same Ollama “engine” as **`./run.sh run`**; Open WebUI is a different “dashboard” talking to **11434**.
+
 ### Ollama is not a `pip` dependency
 
 - **What was chosen:** Ollama is installed as a **system app** (or via **Homebrew** / **Docker**). The repo lists that in **`Brewfile`** and **`docker-compose.yml`**, not in `pyproject.toml`.
@@ -70,6 +78,12 @@ This file explains the project for someone who has never seen the codebase. Afte
 - **One sentence:** Persists conversations in SQLite so the UI can reload past Q&A.
 - **How:** Typical CRUD-style helpers: init schema, save rows, list and get by id.
 - **Example:** After `/ask`, a new row with question, serialized messages, and answer.
+
+### `docker-compose.yml`
+
+- **One sentence:** Optionally runs **Ollama** in Docker (port **11434** published to the host).
+- **How:** The **`ollama`** service mounts a named volume for models. **`run.sh` does not start Docker**; this file is for developers who want Ollama in a container. **Open WebUI** is started with **`./run.sh webui`**, not Compose.
+- **Example:** `docker compose up -d ollama` → Ollama API on the host at **http://127.0.0.1:11434**.
 
 ### `run.sh`
 

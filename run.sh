@@ -24,6 +24,7 @@ Usage: ./run.sh <command>
   setup --brew Same as setup, then run `brew bundle` when brew and Brewfile exist.
   Ollama only: ./setup_ollama.sh [--brew]  (install CLI + pull OPENAI_MODEL; see that file)
   pull-model   Run `ollama pull` for OPENAI_MODEL (default: llama3.1).
+  webui        Start Open WebUI (https://github.com/open-webui/open-webui) for local Ollama (pip via uv; no Docker).
   run          Start the API dev server with reload (default)
 
 Requires uv: https://docs.astral.sh/uv/
@@ -38,8 +39,8 @@ Environment (LLM — defaults target local Ollama):
   SKIP_OLLAMA_CHECK=1   Skip Ollama preflight and auto-start (e.g. remote API)
   OLLAMA_AUTOSTART=0    Require Ollama already running; do not start it from this script
 
-When ./run.sh run starts `ollama serve` itself, stopping the dev server (exit or Ctrl+C)
-stops that Ollama process. If the macOS app was used instead (open -a Ollama), the app
+When ./run.sh run or ./run.sh webui starts `ollama serve` itself, stopping that command
+(exit or Ctrl+C) stops that Ollama process. If the macOS app was used instead (open -a Ollama), the app
 keeps running.
 EOF
 }
@@ -170,6 +171,10 @@ case "$cmd" in
   run)
     ensure_ollama_running
     uv run python main.py
+    ;;
+  webui)
+    ensure_ollama_running
+    exec uv run --with open-webui open-webui serve
     ;;
   *)
     echo "error: unknown command: $cmd" >&2
