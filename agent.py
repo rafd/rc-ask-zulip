@@ -127,9 +127,9 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            # tools=[TOOL_SCHEMA],
-            # tool_choice="auto",
-            # response_format=RESPONSE_SCHEMA,
+            tools=[TOOL_SCHEMA],
+            tool_choice="auto",
+            response_format=RESPONSE_SCHEMA,
         )
         logger.info(
             "agent turn %d: response=%s",
