@@ -11,7 +11,7 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 
 ### Ollama (default local LLM)
 
-- **macOS (Homebrew):** `./install.sh --brew` runs `brew bundle` (see [`Brewfile`](Brewfile)), or install from [ollama.com/download](https://ollama.com/download).
+- **macOS (Homebrew):** `./install.sh --brew` runs `brew bundle` (see [`Brewfile`](Brewfile)). Use **`./setup_ollama.sh`** if you only want that step (it requires Homebrew and runs `brew bundle`). Or install Ollama from [ollama.com/download](https://ollama.com/download).
 - **Optional (manual):** [`docker-compose.yml`](docker-compose.yml) can run Ollama in Docker if you set that up yourself; the shell scripts do not start Docker.
 - **Open WebUI (optional):** browser UI for the same local Ollama models. After `./install.sh`, run:
 
@@ -23,13 +23,7 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 
   If this script started `ollama serve` in the background, exiting Open WebUI (Ctrl+C) stops that process. If you used the macOS Ollama app (`open -a Ollama`), the app keeps running. Background `ollama serve` logs append to `.ollama-serve.log` (gitignored).
 
-- Pull a model that matches `OPENAI_MODEL` (default `llama3.1`):
-
-  ```bash
-  ./setup_ollama.sh
-  ```
-
-  or: `ollama pull llama3.1`
+- Pull a model that matches `OPENAI_MODEL` (default `llama3.1`): `ollama pull llama3.1`
 
 ## Setup
 
@@ -116,7 +110,7 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Subm
 | `install.sh` | `uv sync`; optional `--brew` |
 | `run.sh` | `Ollama.sh --ollama-only` unless `--no-ollama`; then `install.sh` if needed; app **:8000** |
 | `Ollama.sh` | Ollama on **:11434**; add **`--ollama-only`** to skip WebUI; default also starts Open WebUI **:8080** |
-| `setup_ollama.sh` | Optional `--brew`, then `ollama pull` for `OPENAI_MODEL` |
+| `setup_ollama.sh` | Require Homebrew; `brew bundle` from `Brewfile` |
 | `Brewfile` | macOS Homebrew deps (Ollama) |
 | `docker-compose.yml` | Optional Ollama container |
 | `NOTES.md` | Product notes and future ideas |

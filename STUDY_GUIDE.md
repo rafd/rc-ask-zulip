@@ -29,7 +29,7 @@
 - **`anonymize.py` / `db.py`** — Redaction; SQLite.
 - **`install.sh`** — `uv sync`, optional `--brew`.
 - **`run.sh`** — **`./Ollama.sh --ollama-only`** unless **`--no-ollama`**; **`install.sh`** if **`.venv`** is missing; loads **`.env`**; **`exec`** **`main.py`** on **:8000**.
-- **`Ollama.sh`** — **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — optional **`brew bundle`**, then **`ollama pull`** for **`OPENAI_MODEL`**.
+- **`Ollama.sh`** — if **`ollama`** is not on **`PATH`**, runs **`setup_ollama.sh`** (when present). Then **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — require Homebrew, then **`brew bundle`** (same **`Brewfile`** as **`install.sh --brew`**).
 
 ## Things that don't work well
 
