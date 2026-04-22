@@ -77,6 +77,12 @@ This file explains the project for someone who has never seen the codebase. Afte
 - **How:** `setup` runs `uv sync --extra dev`. For `run`, if the preflight applies (`OPENAI_BASE_URL` points at local `:11434` and `SKIP_OLLAMA_CHECK` is not set), the script waits for `http://127.0.0.1:11434/api/tags`. If down and `OLLAMA_AUTOSTART` is not `0`, it runs `ollama serve` in the background, registers a **`trap`** to **`kill` that PID** on `EXIT`/`INT`/`TERM`, and polls. On macOS it can fall back to **`open -a Ollama`** (no teardown when the script exits). **`OLLAMA_AUTOSTART=0`** means “must already be running.”
 - **Example:** `./run.sh pull-model` runs `ollama pull` for `OPENAI_MODEL` or `llama3.1`.
 
+### `setup_ollama.sh`
+
+- **One sentence:** Installs the Ollama CLI when you use `--brew` on macOS, then pulls **`OPENAI_MODEL`** (default **`llama3.1`**) so local dev has a model without running the full Python **`setup`** first.
+- **How:** Sources **`.env`** like **`run.sh`**, optionally runs **`brew bundle`** from **`Brewfile`**, checks for the **`ollama`** command, runs **`ollama pull`**, then probes **`http://127.0.0.1:11434/api/tags`** and prints a tip if nothing is listening yet.
+- **Example:** `./setup_ollama.sh --brew` → Homebrew installs Ollama, then **`ollama pull llama3.1`** (or whatever **`OPENAI_MODEL`** is).
+
 ## Things that don't work well
 
 - **Model capability gaps:** Smaller local models may ignore JSON formatting instructions or tool calls compared to large cloud models.

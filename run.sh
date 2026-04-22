@@ -22,6 +22,7 @@ Usage: ./run.sh <command>
 
   setup        Install Python deps (uv sync). On macOS, suggests "brew bundle" for Ollama.
   setup --brew Same as setup, then run `brew bundle` when brew and Brewfile exist.
+  Ollama only: ./setup_ollama.sh [--brew]  (install CLI + pull OPENAI_MODEL; see that file)
   pull-model   Run `ollama pull` for OPENAI_MODEL (default: llama3.1).
   run          Start the API dev server with reload (default)
 
