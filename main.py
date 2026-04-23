@@ -1,10 +1,11 @@
+import json
 import logging
 import os
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 import db
@@ -55,6 +56,25 @@ def ask(q: str):
         raise HTTPException(status_code=422, detail=e.message) from e
     conv_id = db.save_conversation(q, messages, final_answer)
     return {"id": conv_id, "messages": messages, "final_answer": final_answer}
+
+
+@app.get("/ask-stream")
+def ask_stream(q: str):
+    def event_generator():
+        def progress_callback(step: str, data: dict):
+            event_data = {"step": step, "data": data}
+            yield f"data: {json.dumps(event_data)}\n\n"
+
+        try:
+            messages, final_answer = run_agent(q, progress_callback=progress_callback)
+            conv_id = db.save_conversation(q, messages, final_answer)
+            event_data = {"step": "complete", "data": {"id": conv_id, "final_answer": final_answer}}
+            yield f"data: {json.dumps(event_data)}\n\n"
+        except AgentAnswerError as e:
+            event_data = {"step": "error", "data": {"message": e.message}}
+            yield f"data: {json.dumps(event_data)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.get("/conversations")
