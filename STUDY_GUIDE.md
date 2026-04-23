@@ -22,12 +22,13 @@
 - **Bootstrap search** guarantees at least one Zulip fetch before the model loop, so every run has tool-grounded context.
 - **Strict three-part JSON** keeps the UI simple and avoids unstructured blobs.
 - **Tool turns omit `response_format`** when possible so local servers are less likely to break tool calling; a **repair** completion uses **`response_format`** if the first final reply is not valid JSON.
+- **Server-Sent Events (SSE) for progress streaming:** `/ask-stream` endpoint uses SSE (text/event-stream) instead of WebSocket because: (1) it's one-way (server → client), (2) HTTP-based and simpler to debug, (3) no external dependencies on the frontend. Progress events are sent as JSON-formatted SSE data events with `step` and `data` fields. The backend calls a `progress_callback` at key points (bootstrap search, each agent turn, tool searches) so users see live updates instead of a blank “Thinking...” state.
 - **Cons:** tool/JSON behavior depends on the server; for localhost Ollama, something must serve **:11434** (**`./Ollama.sh`**, desktop app, or **`ollama serve`**).
 
 ## How each piece works
 
-- **`main.py`** — Routes, static files, `/config` (Zulip site for links), save chats.
-- **`agent.py`** — Bootstrap tool round, chat loop, validates JSON; repair pass on failure.
+- **`main.py`** — Routes, static files, `/config` (Zulip site for links), save chats. **`/ask`** returns full result at once (blocking); **`/ask-stream`** returns SSE stream of progress events plus final answer.
+- **`agent.py`** — Bootstrap tool round, chat loop, validates JSON; repair pass on failure. **`run_agent()`** accepts optional `progress_callback(step, data)` function to emit live progress updates at each major step.
 - **`zulip_search.py`** — `ZULIP_*` env, search public streams, `prepare_for_agent`.
 - **`anonymize.py`** — Not used by the app (legacy).
 - **`db.py`** — SQLite persistence.

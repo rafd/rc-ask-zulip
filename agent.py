@@ -157,13 +157,18 @@ def _call_tool(name: str, arguments: dict) -> str:
     raise ValueError(f"Unknown tool: {name}")
 
 
-def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
+def run_agent(question: str, max_messages: int = 10, progress_callback=None) -> tuple[list[dict], str]:
     """Run the agentic loop for a user question.
 
     Returns (message_log, final_answer).
     message_log contains all messages exchanged, including tool calls and results.
     max_messages limits the number of assistant completions from the API before forcing a final answer.
+    progress_callback is an optional function(step: str, data: dict) called at key points.
     """
+    def _progress(step: str, data: dict):
+        if progress_callback:
+            progress_callback(step, data)
+
     client = _openai_client()
     model = _chat_model()
     messages: list[dict] = [
@@ -171,8 +176,11 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
         {"role": "user", "content": question},
     ]
 
+    _progress("searching_zulip", {"query": question})
     bootstrap_id = f"bootstrap_{uuid.uuid4().hex[:16]}"
     bootstrap_results = messages_for_agent(question)
+    _progress("search_complete", {"count": len(bootstrap_results)})
+
     messages.append({
         "role": "assistant",
         "content": None,
@@ -194,6 +202,8 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
     agent_message_count = 0
 
     while True:
+        _progress("agent_turn", {"turn": agent_message_count + 1, "max": max_messages})
+
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -214,7 +224,11 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
         if choice.finish_reason == "tool_calls" and agent_message_count < max_messages:
             for tool_call in choice.message.tool_calls or []:
                 arguments = json.loads(tool_call.function.arguments)
+                queries = arguments.get("queries", [])
+                _progress("tool_search", {"queries": queries})
                 result = _call_tool(tool_call.function.name, arguments)
+                tool_result = json.loads(result)
+                _progress("tool_search_complete", {"count": len(tool_result)})
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
@@ -222,6 +236,7 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
                 })
             continue
         else:
+            _progress("finalizing_answer", {})
             final_answer = choice.message.content or ""
             return messages, final_answer
 

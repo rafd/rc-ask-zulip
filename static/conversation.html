@@ -284,6 +284,68 @@
       }
     }
 
+    function getProgressMessage(step, data) {
+      switch (step) {
+        case "searching_zulip":
+          return `Searching Zulip for: "${data.query}"`;
+        case "search_complete":
+          return `Found ${data.count} messages`;
+        case "agent_turn":
+          return `Agent turn ${data.turn}/${data.max}`;
+        case "tool_search":
+          const qs = Array.isArray(data.queries) ? data.queries.join(", ") : "";
+          return `Searching for: ${qs}`;
+        case "tool_search_complete":
+          return `Found ${data.count} more messages`;
+        case "finalizing_answer":
+          return "Generating final answer...";
+        default:
+          return `Progress: ${step}`;
+      }
+    }
+
+    async function loadStreaming() {
+      const statusEl = document.getElementById("status");
+      const errorEl = document.getElementById("error");
+      const convEl = document.getElementById("conversation");
+
+      try {
+        const eventSource = new EventSource(`/ask-stream?q=${encodeURIComponent(q)}`);
+
+        eventSource.onmessage = (event) => {
+          try {
+            const { step, data } = JSON.parse(event.data);
+
+            if (step === "complete") {
+              eventSource.close();
+              statusEl.textContent = "";
+              history.replaceState(null, "", `/conversation?id=${data.id}`);
+              convEl.innerHTML = "";
+              render([], data.final_answer, convEl);
+            } else if (step === "error") {
+              eventSource.close();
+              statusEl.textContent = "";
+              errorEl.textContent = `Error: ${data.message}`;
+            } else {
+              const msg = getProgressMessage(step, data);
+              statusEl.textContent = msg;
+            }
+          } catch (err) {
+            console.error("Error parsing event:", err);
+          }
+        };
+
+        eventSource.onerror = () => {
+          eventSource.close();
+          statusEl.textContent = "";
+          errorEl.textContent = "Connection lost";
+        };
+      } catch (err) {
+        statusEl.textContent = "";
+        errorEl.textContent = `Error: ${err.message}`;
+      }
+    }
+
     async function load() {
       const statusEl = document.getElementById("status");
       const errorEl = document.getElementById("error");
@@ -300,12 +362,7 @@
           render(row.messages, row.final_answer, convEl);
           return;
         }
-        const res = await fetch(`/ask?q=${encodeURIComponent(q)}`);
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
-        const data = await res.json();
-        statusEl.textContent = "";
-        history.replaceState(null, "", `/conversation?id=${data.id}`);
-        render(data.messages, data.final_answer, convEl);
+        loadStreaming();
       } catch (err) {
         statusEl.textContent = "";
         errorEl.textContent = `Error: ${err.message}`;
