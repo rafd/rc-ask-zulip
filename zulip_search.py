@@ -4,8 +4,6 @@ from datetime import datetime, timezone
 
 import zulip
 
-from anonymize import anonymize_message
-
 logger = logging.getLogger(__name__)
 
 # Max messages returned per search query (Zulip API num_before).
@@ -23,7 +21,7 @@ def search_messages(query: str) -> dict:
         method="GET",
         request={
             "narrow": [
-                {"operator":"channels","operand":"public"},
+                {"operator": "channels", "operand": "public"},
                 {"operator": "search", "operand": query},
             ],
             "allow_empty_topic_name": True,
@@ -33,18 +31,21 @@ def search_messages(query: str) -> dict:
         },
     )
 
+
 def prepare_for_agent(message: dict) -> dict:
-    return {
+    """Pick fields for the LLM and UI. No redaction (local/trusted use)."""
+    out: dict = {
         "id": message["id"],
         "timestamp": message["timestamp"],
-        "content": message["content"],
-        "subject": message["subject"],
-        "display_recipient": message["display_recipient"],
+        "content": message.get("content", ""),
+        "subject": message.get("subject", ""),
+        "display_recipient": message.get("display_recipient", ""),
+        "sender_full_name": message.get("sender_full_name", ""),
+        "sender_email": message.get("sender_email", ""),
     }
-
-
-def anonymize_messages(messages: list[dict]) -> list[dict]:
-    return [prepare_for_agent(anonymize_message(m)) for m in messages]
+    if message.get("stream_id") is not None:
+        out["stream_id"] = message["stream_id"]
+    return out
 
 
 def messages_for_agent(*queries: str) -> list[dict]:
@@ -54,7 +55,7 @@ def messages_for_agent(*queries: str) -> list[dict]:
         response = search_messages(query)
         if response.get("result") != "success":
             continue
-        batch = anonymize_messages(response.get("messages", []))
+        batch = [prepare_for_agent(m) for m in response.get("messages", [])]
         if batch:
             earliest = min(m["timestamp"] for m in batch)
             latest = max(m["timestamp"] for m in batch)

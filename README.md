@@ -83,8 +83,8 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Subm
 
 - **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (`main.py`) serves static pages and JSON APIs.
 - **Search:** `zulip_search.py` calls Zulip’s message API with a public-channels narrow and full-text search; results are deduplicated across queries.
-- **Privacy:** `anonymize.py` strips sender identity from what the model sees and normalizes mentions (see code for check-in stream handling).
-- **Agent:** `agent.py` uses the OpenAI Python SDK against an OpenAI-compatible API (default: Ollama at `http://127.0.0.1:11434/v1`). Tool calling and strict JSON-schema responses are optional and model-dependent.
+- **Agent:** `agent.py` bootstraps with a real Zulip search, then runs an OpenAI-compatible chat loop (default: Ollama at `http://127.0.0.1:11434/v1`). The model must return a fixed JSON shape (`section_1`–`section_3` with short citation quotes). Message payloads include sender and stream fields as returned by Zulip (local use; treat credentials and data accordingly).
+- **Legacy:** `anonymize.py` is unused in the pipeline; it remains in the repo for reference only.
 - **Storage:** Conversations are stored in SQLite (`conversations.db`) via `db.py`.
 
 ## API (for debugging or integrations)
@@ -93,6 +93,7 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Subm
 |--------|------|---------|
 | GET | `/` | Home (search + past conversations) |
 | GET | `/conversation` | Result page (`?q=...` or `?id=...`) |
+| GET | `/config` | Public Zulip site hostname for permalinks (`zulip_site`) |
 | GET | `/ask?q=...` | Run agent; returns `id`, `messages`, `final_answer` |
 | GET | `/conversations` | List recent saved conversations |
 | GET | `/conversation-data/{id}` | Load one conversation |
@@ -104,7 +105,7 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Subm
 | `main.py` | App entry, routes |
 | `agent.py` | LLM agent + tool wiring |
 | `zulip_search.py` | Zulip client + search |
-| `anonymize.py` | Message redaction for the model |
+| `anonymize.py` | Unused (historical redaction helpers) |
 | `db.py` | SQLite persistence |
 | `static/` | HTML UI |
 | `install.sh` | `uv sync`; optional `--brew` |

@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import db
-from agent import run_agent
+from agent import AgentAnswerError, run_agent
 
 load_dotenv()
 
@@ -29,6 +29,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 db.init_db()
 
+# Used to get the zulip site for the permalinks to the Zulip messages
+@app.get("/config")
+def config():
+    return {"zulip_site": os.environ.get("ZULIP_SITE", "")}
+
 
 @app.get("/", response_class=HTMLResponse)
 def index():
@@ -44,7 +49,10 @@ def conversation():
 
 @app.get("/ask")
 def ask(q: str):
-    messages, final_answer = run_agent(q)
+    try:
+        messages, final_answer = run_agent(q)
+    except AgentAnswerError as e:
+        raise HTTPException(status_code=422, detail=e.message) from e
     conv_id = db.save_conversation(q, messages, final_answer)
     return {"id": conv_id, "messages": messages, "final_answer": final_answer}
 
