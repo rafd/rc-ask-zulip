@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pair with RCers</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    nav { margin-bottom: 1.5rem; }
+    nav a { text-decoration: none; color: #1a0dab; font-size: 0.9rem; }
+    nav a:hover { text-decoration: underline; }
+    h1 { margin-top: 0; }
+    h2 { font-size: 1.1rem; color: #333; margin-top: 2rem; border-bottom: 1px solid #eee; padding-bottom: 0.3rem; }
+    .cards { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+    .card {
+      border: 1px solid #e0e0e0; border-radius: 6px;
+      padding: 0.75rem 1rem; background: #fafafa;
+    }
+    .card-name { font-weight: bold; font-size: 1rem; }
+    .card-topic { font-size: 0.8rem; color: #888; margin-top: 0.1rem; }
+    .card-preview { margin-top: 0.4rem; font-size: 0.9rem; color: #444; }
+    .card-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; align-items: center; }
+    .btn-dm {
+      display: inline-block; padding: 0.35rem 0.9rem; background: #1a0dab;
+      color: #fff; border-radius: 4px; text-decoration: none; font-size: 0.85rem;
+    }
+    .btn-dm:hover { background: #1508a0; }
+    .btn-copy {
+      padding: 0.35rem 0.9rem; background: #fff; border: 1px solid #ccc;
+      border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    .btn-copy:hover { background: #f0f0f0; }
+    .copied-label { font-size: 0.8rem; color: #4caf50; display: none; }
+    #status { color: #888; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <nav><a href="/">← Home</a></nav>
+  <h1>Pair with RCers</h1>
+  <p style="color:#555; font-size:0.9rem;">
+    Based on recent <strong>#checkins</strong> — what people are working on right now.
+    Click <em>Open DM</em> to message them in Zulip, or copy a suggested opener.
+  </p>
+  <div id="status">Loading check-ins…</div>
+  <div id="buckets"></div>
+
+  <script>
+    const BUCKET_ORDER = ["AI","Games","Music","Rust","C","Web","Python","Systems","Math","Other"];
+
+    async function load() {
+      const statusEl = document.getElementById("status");
+      const bucketsEl = document.getElementById("buckets");
+      try {
+        const res = await fetch("/api/checkin-pair");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        statusEl.textContent = "";
+
+        // Render buckets in defined order, then any extra ones
+        const keys = [...new Set([...BUCKET_ORDER, ...Object.keys(data)])];
+        for (const bucket of keys) {
+          const people = data[bucket];
+          if (!people || people.length === 0) continue;
+
+          const section = document.createElement("div");
+          const h2 = document.createElement("h2");
+          h2.textContent = `${bucket} (${people.length})`;
+          section.appendChild(h2);
+
+          const cards = document.createElement("div");
+          cards.className = "cards";
+
+          for (const p of people) {
+            cards.appendChild(makeCard(p));
+          }
+
+          section.appendChild(cards);
+          bucketsEl.appendChild(section);
+        }
+
+        if (bucketsEl.children.length === 0) {
+          statusEl.textContent = "No check-ins found.";
+        }
+      } catch (err) {
+        statusEl.textContent = `Could not load check-ins: ${err.message}`;
+      }
+    }
+
+    function makeCard(p) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const name = document.createElement("div");
+      name.className = "card-name";
+      name.textContent = p.name;
+      card.appendChild(name);
+
+      if (p.topic_subject) {
+        const topic = document.createElement("div");
+        topic.className = "card-topic";
+        topic.textContent = `Topic: ${p.topic_subject}`;
+        card.appendChild(topic);
+      }
+
+      if (p.preview) {
+        const preview = document.createElement("div");
+        preview.className = "card-preview";
+        preview.textContent = p.preview;
+        card.appendChild(preview);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "card-actions";
+
+      const dmLink = document.createElement("a");
+      dmLink.className = "btn-dm";
+      dmLink.href = p.dm_url;
+      dmLink.target = "_blank";
+      dmLink.rel = "noopener noreferrer";
+      dmLink.textContent = "Open DM";
+      actions.appendChild(dmLink);
+
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "btn-copy";
+      copyBtn.textContent = "Copy opener";
+
+      const copiedLabel = document.createElement("span");
+      copiedLabel.className = "copied-label";
+      copiedLabel.textContent = "Copied!";
+
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(p.suggested_message);
+          copiedLabel.style.display = "inline";
+          setTimeout(() => { copiedLabel.style.display = "none"; }, 2000);
+        } catch {
+          prompt("Copy this message:", p.suggested_message);
+        }
+      });
+
+      actions.appendChild(copyBtn);
+      actions.appendChild(copiedLabel);
+      card.appendChild(actions);
+
+      return card;
+    }
+
+    load();
+  </script>
+</body>
+</html>

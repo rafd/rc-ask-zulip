@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 import db
 from agent import AgentAnswerError, run_agent
+from checkin_fetch import build_grouped
 
 load_dotenv()
 
@@ -55,6 +56,18 @@ def ask(q: str):
         raise HTTPException(status_code=422, detail=e.message) from e
     conv_id = db.save_conversation(q, messages, final_answer)
     return {"id": conv_id, "messages": messages, "final_answer": final_answer}
+
+
+@app.get("/pair", response_class=HTMLResponse)
+def pair():
+    with open("static/pair.html") as f:
+        return f.read()
+
+
+@app.get("/api/checkin-pair")
+def checkin_pair():
+    zulip_site = os.environ.get("ZULIP_SITE", "")
+    return build_grouped(zulip_site)
 
 
 @app.get("/conversations")
