@@ -1,12 +1,21 @@
 import json
 import logging
 import os
+import uuid
 
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
 from zulip_search import messages_for_agent
+
+
+class AgentAnswerError(Exception):
+    """Raised when the model never returns a valid structured answer."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
 
 
 def _openai_client() -> OpenAI:
@@ -18,64 +27,75 @@ def _openai_client() -> OpenAI:
 
 
 def _chat_model() -> str:
-    LOCAL_OLLAMA_MODEL = "llama3.1"
-    return os.environ.get("OPENAI_MODEL", LOCAL_OLLAMA_MODEL)
+    LOCAL_OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
+    return LOCAL_OLLAMA_MODEL
 
 SYSTEM_PROMPT = """\
 You are an expert research assistant that answers questions about what Recurse Center participants think about topics.
 
 ## Search
-You have access to a tool that searches Zulip conversations. Use it one or more times to gather relevant messages,
-then synthesize a concise summary answering the user's question. Prefer quality over quantity: a few dozen on-topic messages are usually enough.
-If a search returns few results, try shorter queries or different phrasings, synonyms, or broader terms.
+You already have an initial batch of Zulip messages from a search on the user's question. Use the tool \
+`messages_for_agent` for additional searches if needed: different phrasings, synonyms, or narrower terms. \
+Prefer quality over quantity (a few dozen on-topic messages is usually enough).
 
-## Summary Report
-In your response, identify multiple different themes (MINIMUM 3 themes) and common ideas in the conversations. 
+## Answer format (required)
+Respond with ONLY a JSON object (no markdown fences, no commentary) with exactly these keys: \
+section_1, section_2, section_3.
 
-For each theme, use one object with three fields: "heading", "text", and "message_ids".
+Each section is an object with:
+- "heading": short title for that theme
+- "text": executive summary using concise bullet lines (markdown-friendly plain text; use "- " bullets)
+- "citations": array of objects {"message_id": <integer>, "quote": "<short verbatim excerpt>"}
 
-"heading" is the title for that theme.
-"text" is your executive summary (markdown compatible): be very concise and use bullet points. Keep each bullet short.
-"message_ids" lists the Zulip message ids that support the text (use as citations).
-
-Your final response MUST be valid JSON: an object with a "sections" key whose value is an array of theme objects (each theme has all three fields), for example:
-
-{"sections": [
-  {"heading": "First theme", "text": "- point one\\n- point two", "message_ids": [123, 456]},
-  {"heading": "Second theme", "text": "- another idea", "message_ids": [789]}
-]}
+Rules:
+- Cover three distinct themes across section_1, section_2, section_3.
+- In "text", summarize; do not paste full Zulip messages.
+- Every "quote" must be a short verbatim excerpt (at most ~40 words or two sentences) from a message the user can find by message_id.
+- Use only message_id values that appear in the search/tool results you have seen.
 """
+
+
+_SECTION_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "heading": {"type": "string"},
+        "text": {"type": "string"},
+        "citations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "integer"},
+                    "quote": {"type": "string"},
+                },
+                "required": ["message_id", "quote"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["heading", "text", "citations"],
+    "additionalProperties": False,
+}
 
 RESPONSE_SCHEMA = {
     "type": "json_schema",
     "json_schema": {
-        "name": "answer_sections",
+        "name": "answer_three_sections",
         "strict": True,
         "schema": {
             "type": "object",
             "properties": {
-                "sections": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "heading": {"type": "string"},
-                            "text": {"type": "string"},
-                            "message_ids": {
-                                "type": "array",
-                                "items": {"type": "integer"},
-                            },
-                        },
-                        "required": ["heading", "text", "message_ids"],
-                        "additionalProperties": False,
-                    },
-                }
+                "section_1": _SECTION_JSON_SCHEMA,
+                "section_2": _SECTION_JSON_SCHEMA,
+                "section_3": _SECTION_JSON_SCHEMA,
             },
-            "required": ["sections"],
+            "required": ["section_1", "section_2", "section_3"],
             "additionalProperties": False,
         },
     },
 }
+
+
 
 TOOL_SCHEMA = {
     "type": "function",
@@ -100,6 +120,36 @@ TOOL_SCHEMA = {
 }
 
 
+def _validate_structured_answer(content: str) -> dict:
+    if not (content or "").strip():
+        raise AgentAnswerError("Empty model response")
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise AgentAnswerError(f"Invalid JSON: {e}") from e
+    for key in ("section_1", "section_2", "section_3"):
+        if key not in data:
+            raise AgentAnswerError(f"Missing key {key!r}")
+        sec = data[key]
+        if not isinstance(sec, dict):
+            raise AgentAnswerError(f"{key} must be an object")
+        for k in ("heading", "text", "citations"):
+            if k not in sec:
+                raise AgentAnswerError(f"Missing {key}.{k}")
+        if not isinstance(sec["citations"], list):
+            raise AgentAnswerError(f"{key}.citations must be an array")
+        for i, cit in enumerate(sec["citations"]):
+            if not isinstance(cit, dict):
+                raise AgentAnswerError(f"{key}.citations[{i}] must be an object")
+            mid = cit.get("message_id")
+            if isinstance(mid, bool) or not isinstance(mid, int):
+                raise AgentAnswerError(f"{key}.citations[{i}].message_id must be an integer")
+            quote = (cit.get("quote") or "").strip()
+            if not quote:
+                raise AgentAnswerError(f"{key}.citations[{i}].quote must be non-empty")
+    return data
+
+
 def _call_tool(name: str, arguments: dict) -> str:
     if name == "messages_for_agent":
         result = messages_for_agent(*arguments["queries"])
@@ -112,14 +162,35 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
 
     Returns (message_log, final_answer).
     message_log contains all messages exchanged, including tool calls and results.
-    max_messages limits the number of assistant+tool messages before forcing a final answer.
+    max_messages limits the number of assistant completions from the API before forcing a final answer.
     """
     client = _openai_client()
     model = _chat_model()
-    messages = [
+    messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": question},
     ]
+
+    bootstrap_id = f"bootstrap_{uuid.uuid4().hex[:16]}"
+    bootstrap_results = messages_for_agent(question)
+    messages.append({
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{
+            "id": bootstrap_id,
+            "type": "function",
+            "function": {
+                "name": "messages_for_agent",
+                "arguments": json.dumps({"queries": [question]}),
+            },
+        }],
+    })
+    messages.append({
+        "role": "tool",
+        "tool_call_id": bootstrap_id,
+        "content": json.dumps(bootstrap_results),
+    })
+
     agent_message_count = 0
 
     while True:
@@ -131,24 +202,17 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
             response_format=RESPONSE_SCHEMA,
         )
         logger.info(
-            "agent turn %d: response=%s",
+            "agent turn %d: finish_reason=%s",
             agent_message_count + 1,
-            response,
+            response.choices[0].finish_reason,
         )
 
         choice = response.choices[0]
-        n_tools = len(choice.message.tool_calls or [])
-        logger.info(
-            "agent turn %d: finish_reason=%s tool_calls=%d",
-            agent_message_count + 1,
-            choice.finish_reason,
-            n_tools,
-        )
         messages.append(choice.message.model_dump(exclude_unset=False))
         agent_message_count += 1
 
         if choice.finish_reason == "tool_calls" and agent_message_count < max_messages:
-            for tool_call in choice.message.tool_calls:
+            for tool_call in choice.message.tool_calls or []:
                 arguments = json.loads(tool_call.function.arguments)
                 result = _call_tool(tool_call.function.name, arguments)
                 messages.append({
@@ -156,6 +220,52 @@ def run_agent(question: str, max_messages: int = 10) -> tuple[list[dict], str]:
                     "tool_call_id": tool_call.id,
                     "content": result,
                 })
+            continue
         else:
             final_answer = choice.message.content or ""
             return messages, final_answer
+
+        # if choice.finish_reason == "tool_calls":
+        #     for tool_call in choice.message.tool_calls or []:
+        #         messages.append({
+        #             "role": "tool",
+        #             "tool_call_id": tool_call.id,
+        #             "content": json.dumps([{
+        #                 "error": "search_round_limit",
+        #                 "message": "Use prior search results for your JSON answer only.",
+        #             }]),
+        #         })
+        #     continue
+
+        # final_raw = choice.message.content or ""
+        # try:
+        #     _validate_structured_answer(final_raw)
+        #     return messages, final_raw
+        # except AgentAnswerError as first_err:
+        #     logger.warning("structured answer invalid, attempting repair: %s", first_err.message)
+
+        # messages.append({
+        #     "role": "user",
+        #     "content": (
+        #         "Your previous reply was not valid. Output ONLY one JSON object with keys "
+        #         "section_1, section_2, section_3. Each has heading, text, and citations. "
+        #         "Each citation has message_id (integer) and quote (short verbatim string). "
+        #         "Do not call tools."
+        #     ),
+        # })
+
+        # repair = client.chat.completions.create(
+        #     model=model,
+        #     messages=messages,
+        #     response_format=RESPONSE_SCHEMA,
+        # )
+        # choice2 = repair.choices[0]
+        # final2 = choice2.message.content or ""
+        # try:
+        #     _validate_structured_answer(final2)
+        # except AgentAnswerError as err:
+        #     raise AgentAnswerError(
+        #         f"Could not obtain a valid structured answer: {err.message}",
+        #     ) from err
+        # messages.append(choice2.message.model_dump(exclude_unset=False))
+        # return messages, final2

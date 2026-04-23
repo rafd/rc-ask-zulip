@@ -16,3 +16,4 @@ if [[ ! -f "$ROOT/Brewfile" ]]; then
 fi
 
 brew bundle
+ollama pull $OLLAMA_MODEL

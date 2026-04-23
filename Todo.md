@@ -1,9 +1,13 @@
 # Existing Knowledge:
 - ✅ Tweak the prompt to have headings and bullet-point summaries
 - ✅ UI = Collapse ALL posts/references
-- Show quotes in-line (not whole messages)
+- ✅ Local ollama
+- Way to change which OLLAMA model is used
+- Stream current progress to the FE
 
+- Show quotes in-line (not whole messages)
 - Refactor the schema to have 3 sections.
+
 - 2-Agent pass = Agent1 to write a summary. Agent2 to split that into paragraphs.
 
 Main aim:
