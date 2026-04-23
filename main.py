@@ -8,15 +8,31 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import db
-from agent import run_agent
+from agent import AgentAnswerError, run_agent
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+
+_log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, None)
+if not isinstance(_log_level, int):
+    _log_level_name = "INFO"
+    _log_level = logging.INFO
+logging.basicConfig(
+    level=_log_level,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,
+)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 db.init_db()
+
+# Used to get the zulip site for the permalinks to the Zulip messages
+@app.get("/config")
+def config():
+    return {"zulip_site": os.environ.get("ZULIP_SITE", "")}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -33,7 +49,10 @@ def conversation():
 
 @app.get("/ask")
 def ask(q: str):
-    messages, final_answer = run_agent(q)
+    try:
+        messages, final_answer = run_agent(q)
+    except AgentAnswerError as e:
+        raise HTTPException(status_code=422, detail=e.message) from e
     conv_id = db.save_conversation(q, messages, final_answer)
     return {"id": conv_id, "messages": messages, "final_answer": final_answer}
 
@@ -52,4 +71,8 @@ def conversation_data(conv_id: int):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", reload=True)
+    uvicorn.run(
+        "main:app",
+        reload=True,
+        log_level=_log_level_name.lower(),
+    )
