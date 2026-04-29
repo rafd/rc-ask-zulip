@@ -11,3 +11,6 @@ dependencies = [
     "zulip>=0.9.1",
     "openai>=1.0.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]

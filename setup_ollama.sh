@@ -17,3 +17,5 @@ fi
 
 brew bundle
 ollama pull $OLLAMA_MODEL
+
+echo "✅ Done."

@@ -35,6 +35,25 @@
 - **`run.sh`** — **`install.sh`** if **`.venv`** is missing; loads **`.env`**; **`curl`** **`${OLLAMA_HOST:-http://127.0.0.1:11434}/api/tags`** and runs **`./Ollama.sh --ollama-only`** if that fails; **`exec`** **`main.py`** on **:8000**.
 - **`Ollama.sh`** — if **`ollama`** is not on **`PATH`**, runs **`setup_ollama.sh`** (when present). Then **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — require Homebrew, then **`brew bundle`** (same **`Brewfile`** as **`install.sh --brew`**).
 
+## Pair page (`/pair`)
+
+**What it does:** Shows what RCers are currently working on (from their latest `#checkins` post) grouped by topic, with one-click DM links and a copyable pairing message.
+
+**How it works:**
+1. `GET /api/checkin-pair` calls `checkin_fetch.build_grouped(zulip_site)`.
+2. `fetch_raw_checkins()` fetches up to 400 recent messages from the `#checkins` channel via Zulip API (no anonymization — real names and content are needed for the DM links and blurbs).
+3. Messages are sorted newest-first and `dedupe_latest()` keeps the **first occurrence per `sender_id`** (= most recent check-in), capped at 75 distinct people.
+4. Each person's `content` is stripped of HTML and truncated to a 200-char preview by `make_preview()`.
+5. `checkin_topics.classify()` matches the preview + topic subject against regex keyword buckets (AI, Games, Music, Rust, C, Web, Python, Systems, Math, Other). First match wins.
+6. `dm_url()` constructs `{ZULIP_SITE}/#narrow/dm/{sender_id}` — opens a DM in the browser when the user is logged into Zulip.
+7. `static/pair.html` renders sections per bucket with **Open DM** links and a **Copy opener** button (uses `navigator.clipboard`).
+
+**Key decisions:**
+- **Keyword buckets over LLM clustering:** Fast, zero-cost, easy to tune. Trade-off: imprecise — "music" can contain keywords from other buckets, so regex uses `\b` word boundaries. LLM clustering would be more accurate but adds latency and cost.
+- **No anonymization:** This endpoint reveals real names and work topics. It's equivalent to browsing `#checkins` while logged in, but centralised. Do not expose the server without auth if deploying broadly.
+- **`sender_id` for DM links (not email):** Zulip's `/#narrow/dm/{id}` pattern works without knowing the user's email. It opens their DM thread in the org you're logged into.
+- **`ZULIP_CHECKIN_STREAM` env var:** Defaults to `"checkins"`. Swap it to `"alumni checkins"` or another stream without code changes.
+- **Batch scoping TBD:** The MVP uses anyone with a recent check-in. A future enhancement could filter by a Zulip user group (`ZULIP_BATCH_USER_GROUP_ID`) to show only current-batch members.
 ## Things that don't work well
 
 - Small local models are weaker at tools/JSON than big cloud APIs.
