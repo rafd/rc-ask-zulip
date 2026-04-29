@@ -2,49 +2,227 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pair with RCers</title>
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-    nav { margin-bottom: 1.5rem; }
-    nav a { text-decoration: none; color: #1a0dab; font-size: 0.9rem; }
+    :root {
+      --bg: #f6f7fb;
+      --card: #fff;
+      --border: #e2e5ec;
+      --text: #1a1d26;
+      --muted: #5c6370;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --checkin: #0d9488;
+      --checkin-hover: #0f766e;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem 1.25rem 3rem;
+      line-height: 1.45;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    nav { margin-bottom: 1.25rem; }
+    nav a { text-decoration: none; color: var(--accent); font-size: 0.9rem; }
     nav a:hover { text-decoration: underline; }
-    h1 { margin-top: 0; }
-    h2 { font-size: 1.1rem; color: #333; margin-top: 2rem; border-bottom: 1px solid #eee; padding-bottom: 0.3rem; }
-    .cards { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .intro {
+      color: var(--muted);
+      font-size: 0.95rem;
+      max-width: 42rem;
+      margin-bottom: 1.75rem;
+    }
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 650;
+      margin: 2rem 0 0.85rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    h2 .emoji { font-size: 1.25rem; line-height: 1; }
+    h2 .count {
+      font-weight: 500;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
     .card {
-      border: 1px solid #e0e0e0; border-radius: 6px;
-      padding: 0.75rem 1rem; background: #fafafa;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      box-shadow: var(--shadow);
+      display: flex;
+      gap: 0.9rem;
+      align-items: flex-start;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
     }
-    .card-name { font-weight: bold; font-size: 1rem; }
-    .card-topic { font-size: 0.8rem; color: #888; margin-top: 0.1rem; }
-    .card-preview { margin-top: 0.4rem; font-size: 0.9rem; color: #444; }
-    .card-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; align-items: center; }
+    .card:hover {
+      border-color: #c8d4f0;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08), 0 8px 24px rgba(0,0,0,.06);
+    }
+    .avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .avatar-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .card-body { min-width: 0; flex: 1; }
+    .card-name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      margin: 0 0 0.15rem;
+    }
+    .card-topic {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .card-preview {
+      font-size: 0.88rem;
+      color: #3d4450;
+      margin: 0 0 0.65rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
     .btn-dm {
-      display: inline-block; padding: 0.35rem 0.9rem; background: #1a0dab;
-      color: #fff; border-radius: 4px; text-decoration: none; font-size: 0.85rem;
+      background: var(--accent);
+      color: #fff;
     }
-    .btn-dm:hover { background: #1508a0; }
+    .btn-dm:hover { background: var(--accent-hover); }
+    .btn-checkin {
+      background: #fff;
+      color: var(--checkin);
+      border: 1px solid var(--checkin);
+    }
+    .btn-checkin:hover {
+      background: #f0fdfa;
+      border-color: var(--checkin-hover);
+      color: var(--checkin-hover);
+    }
     .btn-copy {
-      padding: 0.35rem 0.9rem; background: #fff; border: 1px solid #ccc;
-      border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+      background: #f1f3f8;
+      color: var(--text);
+      border: 1px solid var(--border);
     }
-    .btn-copy:hover { background: #f0f0f0; }
-    .copied-label { font-size: 0.8rem; color: #4caf50; display: none; }
-    #status { color: #888; margin-top: 1rem; }
+    .btn-copy:hover { background: #e8ebf2; }
+    .copied-label { font-size: 0.78rem; color: #059669; display: none; }
+    #status { color: var(--muted); margin: 1rem 0; }
   </style>
 </head>
 <body>
-  <nav><a href="/">← Home</a></nav>
-  <h1>Pair with RCers</h1>
-  <p style="color:#555; font-size:0.9rem;">
-    Based on recent <strong>#checkins</strong> — what people are working on right now.
-    Click <em>Open DM</em> to message them in Zulip, or copy a suggested opener.
-  </p>
-  <div id="status">Loading check-ins…</div>
-  <div id="buckets"></div>
+  <div class="wrap">
+    <nav><a href="/">← Home</a></nav>
+    <h1>🤝 Pair with RCers</h1>
+    <p class="intro">
+      Based on recent <strong>#checkins</strong> — what people are working on right now.
+      Open someone’s <strong>check-in thread</strong> or slide into their <strong>DM</strong>,
+      or copy a suggested opener.
+    </p>
+    <div id="status">Loading check-ins…</div>
+    <div id="buckets"></div>
+  </div>
 
   <script>
-    const BUCKET_ORDER = ["AI","Games","Music","Rust","C","Web","Python","Systems","Math","Other"];
+    /** Matches checkin_topics.BUCKETS iteration order (Other is always last). */
+    const BUCKET_ORDER = [
+      "AI", "Music", "Games", "Rust", "Go", "Zig", "C", "Web", "Python", "Systems",
+      "Math", "DevOps", "Data", "Security", "Mobile", "Cloud", "Hardware",
+      "Talks/Demos", "Pairing", "Career", "Languages", "Art", "Cooking", "Life",
+    ];
+
+    const BUCKET_EMOJI = {
+      AI: "🤖",
+      Music: "🎵",
+      Games: "🎮",
+      Rust: "🦀",
+      Go: "🐹",
+      Zig: "⚡",
+      C: "🔧",
+      Web: "🌐",
+      Python: "🐍",
+      Systems: "⚙️",
+      Math: "📐",
+      DevOps: "🛠️",
+      Data: "📊",
+      Security: "🔒",
+      Mobile: "📱",
+      Cloud: "☁️",
+      Hardware: "🔌",
+      "Talks/Demos": "🎤",
+      Pairing: "🧑‍💻",
+      Career: "💼",
+      Languages: "🗣️",
+      Art: "🎨",
+      Cooking: "🍳",
+      Life: "🌿",
+      Other: "✨",
+    };
+
+    function bucketSortKeys(keys) {
+      const idx = (k) => {
+        if (k === "Other") return 1_000;
+        const i = BUCKET_ORDER.indexOf(k);
+        return i === -1 ? BUCKET_ORDER.length : i;
+      };
+      return [...keys].sort((a, b) => {
+        const da = idx(a), db = idx(b);
+        if (da !== db) return da - db;
+        return a.localeCompare(b);
+      });
+    }
 
     async function load() {
       const statusEl = document.getElementById("status");
@@ -56,25 +234,34 @@
 
         statusEl.textContent = "";
 
-        // Render buckets in defined order, then any extra ones
-        const keys = [...new Set([...BUCKET_ORDER, ...Object.keys(data)])];
+        const keys = bucketSortKeys(
+          Object.keys(data).filter((k) => data[k] && data[k].length > 0)
+        );
+
         for (const bucket of keys) {
           const people = data[bucket];
-          if (!people || people.length === 0) continue;
 
           const section = document.createElement("div");
           const h2 = document.createElement("h2");
-          h2.textContent = `${bucket} (${people.length})`;
+          const emojiSpan = document.createElement("span");
+          emojiSpan.className = "emoji";
+          emojiSpan.textContent = BUCKET_EMOJI[bucket] || "📌";
+          h2.appendChild(emojiSpan);
+          h2.appendChild(document.createTextNode(` ${bucket} `));
+          const count = document.createElement("span");
+          count.className = "count";
+          count.textContent = `(${people.length})`;
+          h2.appendChild(count);
           section.appendChild(h2);
 
-          const cards = document.createElement("div");
-          cards.className = "cards";
+          const grid = document.createElement("div");
+          grid.className = "grid";
 
           for (const p of people) {
-            cards.appendChild(makeCard(p));
+            grid.appendChild(makeCard(p));
           }
 
-          section.appendChild(cards);
+          section.appendChild(grid);
           bucketsEl.appendChild(section);
         }
 
@@ -90,39 +277,69 @@
       const card = document.createElement("div");
       card.className = "card";
 
+      if (p.avatar_url) {
+        const img = document.createElement("img");
+        img.className = "avatar";
+        img.src = p.avatar_url;
+        img.alt = "";
+        img.width = 52;
+        img.height = 52;
+        img.referrerPolicy = "no-referrer";
+        img.addEventListener("error", () => {
+          img.replaceWith(avatarFallbackEl(p.name));
+        });
+        card.appendChild(img);
+      } else {
+        card.appendChild(avatarFallbackEl(p.name));
+      }
+
+      const body = document.createElement("div");
+      body.className = "card-body";
+
       const name = document.createElement("div");
       name.className = "card-name";
       name.textContent = p.name;
-      card.appendChild(name);
+      body.appendChild(name);
 
       if (p.topic_subject) {
         const topic = document.createElement("div");
         topic.className = "card-topic";
         topic.textContent = `Topic: ${p.topic_subject}`;
-        card.appendChild(topic);
+        body.appendChild(topic);
       }
 
       if (p.preview) {
         const preview = document.createElement("div");
         preview.className = "card-preview";
         preview.textContent = p.preview;
-        card.appendChild(preview);
+        body.appendChild(preview);
       }
 
       const actions = document.createElement("div");
       actions.className = "card-actions";
 
+      if (p.checkin_url) {
+        const checkinLink = document.createElement("a");
+        checkinLink.className = "btn btn-checkin";
+        checkinLink.href = p.checkin_url;
+        checkinLink.target = "_blank";
+        checkinLink.rel = "noopener noreferrer";
+        checkinLink.textContent = "📋 Open check-in";
+        actions.appendChild(checkinLink);
+      }
+
       const dmLink = document.createElement("a");
-      dmLink.className = "btn-dm";
+      dmLink.className = "btn btn-dm";
       dmLink.href = p.dm_url;
       dmLink.target = "_blank";
       dmLink.rel = "noopener noreferrer";
-      dmLink.textContent = "Open DM";
+      dmLink.textContent = "💬 Open DM";
       actions.appendChild(dmLink);
 
       const copyBtn = document.createElement("button");
-      copyBtn.className = "btn-copy";
-      copyBtn.textContent = "Copy opener";
+      copyBtn.type = "button";
+      copyBtn.className = "btn btn-copy";
+      copyBtn.textContent = "📎 Copy opener";
 
       const copiedLabel = document.createElement("span");
       copiedLabel.className = "copied-label";
@@ -140,9 +357,19 @@
 
       actions.appendChild(copyBtn);
       actions.appendChild(copiedLabel);
-      card.appendChild(actions);
+      body.appendChild(actions);
 
+      card.appendChild(body);
       return card;
+    }
+
+    function avatarFallbackEl(name) {
+      const initial = (name && name.trim()[0]) ? name.trim()[0].toUpperCase() : "?";
+      const div = document.createElement("div");
+      div.className = "avatar avatar-fallback";
+      div.setAttribute("aria-hidden", "true");
+      div.textContent = initial;
+      return div;
     }
 
     load();

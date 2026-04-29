@@ -1,7 +1,16 @@
 """Unit tests for checkin_fetch and checkin_topics (no real Zulip calls)."""
 import pytest
 
-from checkin_fetch import build_grouped, build_threads, dm_url, make_preview, strip_html, suggested_message
+from checkin_fetch import (
+    build_grouped,
+    build_threads,
+    checkin_near_url,
+    dm_url,
+    encode_hash_component,
+    make_preview,
+    strip_html,
+    suggested_message,
+)
 from checkin_topics import classify
 
 
@@ -130,18 +139,26 @@ def test_build_threads_owner_falls_back_to_latest_message_sender():
 def test_build_grouped_classifies_from_owner_messages_only(monkeypatch):
     msgs = [
         {
+            "id": 1003,
             "sender_id": 1,
             "sender_full_name": "Alice",
             "subject": "Alice",
             "timestamp": 300,
             "content": "<p>Working on Rust borrow checker examples.</p>",
+            "stream_id": 41,
+            "display_recipient": "checkins",
+            "avatar_url": "https://example.com/a.png",
         },
         {
+            "id": 1002,
             "sender_id": 2,
             "sender_full_name": "Bob",
             "subject": "Alice",
             "timestamp": 250,
             "content": "<p>I am training an LLM with embeddings.</p>",
+            "stream_id": 41,
+            "display_recipient": "checkins",
+            "avatar_url": "",
         },
     ]
 
@@ -151,6 +168,29 @@ def test_build_grouped_classifies_from_owner_messages_only(monkeypatch):
     assert "Rust" in grouped
     assert "AI" not in grouped
     assert grouped["Rust"][0]["name"] == "Alice"
+    assert grouped["Rust"][0]["avatar_url"] == "https://example.com/a.png"
+    assert grouped["Rust"][0]["checkin_url"].endswith("/near/1003")
+
+
+# --- encode_hash_component / checkin_near_url ---
+
+def test_encode_hash_component_space():
+    assert encode_hash_component("Alice Smith") == "Alice.20Smith"
+
+
+def test_encode_hash_component_percent():
+    assert ".25" in encode_hash_component("100% done")
+
+
+def test_checkin_near_url_shape():
+    url = checkin_near_url(
+        "https://recurse.zulipchat.com",
+        41,
+        "checkins",
+        "Alice",
+        999001,
+    )
+    assert url.startswith("https://recurse.zulipchat.com/#narrow/channel/41-checkins/topic/Alice/near/999001")
 
 
 # --- dm_url ---

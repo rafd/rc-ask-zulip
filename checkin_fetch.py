@@ -99,6 +99,32 @@ def dm_url(sender_id: int, zulip_site: str) -> str:
     return f"{site}/#narrow/dm/{sender_id}"
 
 
+def encode_hash_component(text: str) -> str:
+    """Zulip web-app encoding for stream/topic fragments in #narrow URLs (matches hash_util)."""
+    text = text.replace("%", ".25")
+
+    def repl(m: re.Match[str]) -> str:
+        return "." + format(ord(m.group()), "X")
+
+    return re.sub(r"[^\w.\-]", repl, text, flags=re.ASCII)
+
+
+def checkin_near_url(
+    zulip_site: str,
+    stream_id: int,
+    stream_name: str,
+    topic: str,
+    message_id: int,
+) -> str:
+    """Permalink to a message in a channel topic (opens in Zulip web)."""
+    site = zulip_site.rstrip("/")
+    enc_stream = encode_hash_component(stream_name)
+    enc_topic = encode_hash_component(topic)
+    return (
+        f"{site}/#narrow/channel/{stream_id}-{enc_stream}/topic/{enc_topic}/near/{message_id}"
+    )
+
+
 def suggested_message(name: str, snippet: str) -> str:
     if snippet:
         short = snippet[:60].rsplit(" ", 1)[0] if len(snippet) > 60 else snippet
@@ -148,12 +174,30 @@ def build_grouped(zulip_site: str) -> dict[str, list[dict]]:
         preview_source = thread["owner_messages"] or thread["messages"]
         preview = _thread_preview(preview_source)
         matched_buckets = classify(preview + " " + thread["topic_subject"])
+        owner_msgs = thread["owner_messages"] or thread["messages"]
+        anchor = max(owner_msgs, key=lambda m: m["timestamp"])
+        stream_id = anchor.get("stream_id")
+        stream_name = anchor.get("display_recipient")
+        message_id = anchor.get("id")
+        avatar_url = (anchor.get("avatar_url") or "").strip()
+        checkin_url = ""
+        if (
+            stream_id is not None
+            and message_id is not None
+            and isinstance(stream_name, str)
+            and stream_name
+        ):
+            checkin_url = checkin_near_url(
+                zulip_site, int(stream_id), stream_name, thread["topic_subject"], int(message_id)
+            )
         entry = {
             "name": thread["owner_name"],
             "user_id": thread["owner_id"],
             "timestamp": thread["latest_timestamp"],
             "topic_subject": thread["topic_subject"],
             "preview": preview,
+            "avatar_url": avatar_url,
+            "checkin_url": checkin_url,
             "dm_url": dm_url(thread["owner_id"], zulip_site),
             "suggested_message": suggested_message(thread["owner_name"], preview),
         }

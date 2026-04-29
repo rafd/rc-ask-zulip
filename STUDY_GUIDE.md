@@ -48,7 +48,9 @@
 6. Owner-authored messages are combined, HTML is stripped, and a 200-char preview is built by `make_preview()`. This keeps richer context while avoiding "reply noise."
 7. `checkin_topics.classify()` matches the owner-only preview + topic subject against regex keyword buckets and returns all matches in bucket order. If nothing matches, it returns `["Other"]`.
 8. `dm_url()` constructs `{ZULIP_SITE}/#narrow/dm/{sender_id}` — opens a DM in the browser when the user is logged into Zulip.
-9. `static/pair.html` renders sections per bucket with **Open DM** links and a **Copy opener** button (uses `navigator.clipboard`).
+9. `checkin_near_url()` builds a **channel/topic/near/message** `#narrow` link from `stream_id`, `display_recipient` (stream name), topic subject, and the owner’s newest message `id` (Zulip’s `encode_hash_component` rules live in `encode_hash_component()`).
+10. Each API row includes **`avatar_url`** (from the anchor message) and **`checkin_url`** (empty if the Zulip payload lacks ids/stream info).
+11. `static/pair.html` renders a **responsive card grid** with avatars (or initials), section **emoji**, **Open check-in** + **Open DM**, and **Copy opener**. Bucket **Other** is always **last**; unknown bucket names sort just before Other.
 
 **Key decisions:**
 - **Keyword buckets over LLM clustering:** Fast, zero-cost, easy to tune. Trade-off: imprecise — "music" can contain keywords from other buckets, so regex uses `\b` word boundaries. LLM clustering would be more accurate but adds latency and cost.
