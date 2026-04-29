@@ -17,13 +17,23 @@ Main aim:
 
 
 # Summarising checkins into groups
-- Improve the REGEX
-    - Or increase the regex
-- Store a FEW categories per person!
-    - also have a way of bucketing categories e.g: Bevy & Godot all get bucketed to "Game Dev"
-- DONT limit to 1 message per check-in
-- SHOULD use OLLAMA as 
+- ✅ Improve the REGEX - Or increase the regex
+- ✅ Store a FEW categories per person!
+- ✅ DONT limit to 1 message per check-in
+
+1. ✅ Improve categorisation + threading
+
+2. Improve FE 
 - FE could use cards and a grid to look nicer (and some nice emoji)
+- Show names and pictures!
+- Another button = Open checkin as well as openDM
+- display other at the bottom of the list
+
+3. Host it on Disco + OAUTH
+
+
+4. SHOULD use OLLAMA as 
+    - also have a way of bucketing categories e.g: Bevy & Godot all get bucketed to "Game Dev"
 
 # Zulip Overview:
 - What is popping on Zulip this week (~50 people with 3 projects each) => Group them into rough topics

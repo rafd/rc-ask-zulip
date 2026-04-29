@@ -37,20 +37,24 @@
 
 ## Pair page (`/pair`)
 
-**What it does:** Shows what RCers are currently working on (from their latest `#checkins` post) grouped by topic, with one-click DM links and a copyable pairing message.
+**What it does:** Shows what RCers are currently working on (from their `#checkins` topic thread) grouped by topic, with one-click DM links and a copyable pairing message.
 
 **How it works:**
 1. `GET /api/checkin-pair` calls `checkin_fetch.build_grouped(zulip_site)`.
 2. `fetch_raw_checkins()` fetches up to 400 recent messages from the `#checkins` channel via Zulip API (no anonymization — real names and content are needed for the DM links and blurbs).
-3. Messages are sorted newest-first and `dedupe_latest()` keeps the **first occurrence per `sender_id`** (= most recent check-in), capped at 75 distinct people.
-4. Each person's `content` is stripped of HTML and truncated to a 200-char preview by `make_preview()`.
-5. `checkin_topics.classify()` matches the preview + topic subject against regex keyword buckets and returns all matches in bucket order. If nothing matches, it returns `["Other"]`.
-6. `dm_url()` constructs `{ZULIP_SITE}/#narrow/dm/{sender_id}` — opens a DM in the browser when the user is logged into Zulip.
-7. `static/pair.html` renders sections per bucket with **Open DM** links and a **Copy opener** button (uses `navigator.clipboard`).
+3. Messages are sorted newest-first and `build_threads()` groups them by Zulip topic (`subject`). In this stream, each topic is the recurser's name, so each topic becomes one "person thread", capped at 75 newest threads.
+4. The thread owner is inferred by matching `sender_full_name` to the topic name. If no exact match is found, the newest message sender is used as a fallback DM target.
+5. The app keeps only messages authored by the inferred thread owner (the person whose topic it is). Replies from other people in that topic are excluded from classification.
+6. Owner-authored messages are combined, HTML is stripped, and a 200-char preview is built by `make_preview()`. This keeps richer context while avoiding "reply noise."
+7. `checkin_topics.classify()` matches the owner-only preview + topic subject against regex keyword buckets and returns all matches in bucket order. If nothing matches, it returns `["Other"]`.
+8. `dm_url()` constructs `{ZULIP_SITE}/#narrow/dm/{sender_id}` — opens a DM in the browser when the user is logged into Zulip.
+9. `static/pair.html` renders sections per bucket with **Open DM** links and a **Copy opener** button (uses `navigator.clipboard`).
 
 **Key decisions:**
 - **Keyword buckets over LLM clustering:** Fast, zero-cost, easy to tune. Trade-off: imprecise — "music" can contain keywords from other buckets, so regex uses `\b` word boundaries. LLM clustering would be more accurate but adds latency and cost.
 - **Multi-label classification (not first-match only):** One check-in can belong to several topics (for example Python + Cloud + DevOps), which improves pairing discovery for people doing cross-domain work. Trade-off: the same person can appear in multiple sections, so the UI can look more repetitive.
+- **Topic-thread aggregation over single-message dedupe:** We classify from the person's own updates in their check-in thread (topic) instead of one latest message. This improves signal when work spans several updates.
+- **Owner-only classification input:** Replies from other people in someone else's topic are ignored for categorization. This prevents cross-talk from mislabeling a person's interests. Trade-off: useful context from collaborators is not used.
 - **No anonymization:** This endpoint reveals real names and work topics. It's equivalent to browsing `#checkins` while logged in, but centralised. Do not expose the server without auth if deploying broadly.
 - **`sender_id` for DM links (not email):** Zulip's `/#narrow/dm/{id}` pattern works without knowing the user's email. It opens their DM thread in the org you're logged into.
 - **`ZULIP_CHECKIN_STREAM` env var:** Defaults to `"checkins"`. Swap it to `"alumni checkins"` or another stream without code changes.
