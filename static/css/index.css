@@ -1,0 +1,14 @@
+body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+input[type="text"] { width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box; }
+button { margin-top: 0.5rem; padding: 0.5rem 1.5rem; font-size: 1rem; }
+h2 { font-size: 1rem; margin-top: 2rem; color: #555; }
+
+.nav-top { margin-bottom: 1rem; font-size: 0.9rem; }
+.nav-top a { color: #1a0dab; text-decoration: none; }
+
+.past-list { list-style: none; padding: 0; margin: 0; }
+.past-list li { padding: 0.4rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.past-list a { text-decoration: none; color: #1a0dab; flex: 1; }
+.past-list a:hover { text-decoration: underline; }
+.past-list .ts { font-size: 0.8rem; color: #888; white-space: nowrap; }
+.past-list .muted { color: #888; }

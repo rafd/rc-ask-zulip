@@ -1,0 +1,64 @@
+body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+a { color: inherit; }
+h2 { font-size: 1.1rem; font-weight: normal; color: #555; margin-bottom: 1.5rem; }
+
+.message { margin-bottom: 1rem; border-radius: 6px; padding: 0.75rem 1rem; }
+.message.assistant { background: #f0f4ff; }
+.message.tool { background: #f4f4f4; font-family: monospace; font-size: 0.85rem; }
+.message.tool pre { margin: 0; white-space: pre-wrap; }
+
+.role { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #888; margin-bottom: 0.25rem; }
+
+.tool-call { color: #555; }
+.tool-call code { background: #e8e8e8; padding: 0.1em 0.3em; border-radius: 3px; }
+
+.search-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
+.search-tag { background: #e8e8e8; border-radius: 3px; padding: 0.15em 0.5em; font-size: 0.85rem; font-family: monospace; }
+
+#view-toggle { margin-bottom: 1rem; font-size: 0.85rem; }
+#view-toggle button { padding: 0.25rem 0.75rem; cursor: pointer; }
+#view-toggle button.active { font-weight: bold; background: #ddd; }
+
+.final-answer { background: #eaffea; border-left: 4px solid #4caf50; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; }
+.final-answer h3.answer-section-heading { font-size: 1.05rem; font-weight: 600; color: #1b5e20; margin: 1rem 0 0.35rem 0; line-height: 1.3; }
+.final-answer h3.answer-section-heading:first-of-type { margin-top: 0; }
+
+.fallback-answer { margin: 0; white-space: pre-wrap; }
+
+.debug-pre { background: #f4f4f4; padding: 1rem; border-radius: 6px; overflow: auto; font-size: 0.8rem; white-space: pre-wrap; }
+
+#status { color: #888; font-style: italic; }
+#error { color: red; }
+
+.spoiler-block { border: 1px solid #ddd; border-radius: 4px; margin: 0.5rem 0; overflow: hidden; }
+.spoiler-header { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.75rem; background: #f4f4f4; cursor: pointer; user-select: none; }
+.spoiler-header:hover { background: #eaeaea; }
+.spoiler-title { font-size: 0.85rem; color: #555; font-style: italic; }
+.spoiler-toggle { font-size: 0.75rem; color: #888; }
+.spoiler-content { padding: 0.75rem; display: none; }
+.spoiler-content.open { display: block; }
+
+.cite-details { margin-bottom: 0.75rem; border: 1px solid #c8e6c9; border-radius: 8px; overflow: hidden; background: #fafefa; }
+.cite-summary { list-style: none; cursor: pointer; padding: 0.55rem 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.9rem; color: #2e7d32; font-weight: 500; user-select: none; background: linear-gradient(180deg, #e8f5e9 0%, #dff3e0 100%); transition: background 0.15s ease; }
+.cite-summary::-webkit-details-marker { display: none; }
+.cite-summary:hover { background: #d4ecd6; }
+.cite-details[open] > .cite-summary { border-bottom: 1px solid #c8e6c9; }
+.cite-summary-text { flex: 1; }
+.cite-summary-chevron { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; font-size: 0.85rem; font-weight: 700; line-height: 1; color: #43a047; transition: transform 0.2s ease; }
+.cite-details[open] .cite-summary-chevron { transform: rotate(90deg); }
+.cite-details-inner { padding: 0.65rem 0.75rem 0.35rem; background: #fafefa; }
+.cite-item { margin-bottom: 0.5rem; border-left: 3px solid #4caf50; padding-left: 0.75rem; background: #f8fff8; border-radius: 0 4px 4px 0; }
+.cite-meta { font-size: 0.75rem; color: #888; margin-bottom: 0.2rem; }
+.cite-body { font-size: 0.9rem; max-height: 6rem; overflow: hidden; position: relative; }
+.cite-body.is-expanded { max-height: none; overflow: visible; }
+.cite-expand { display: none; font-size: 0.75rem; color: #4caf50; background: none; border: none; padding: 0.25rem 0; cursor: pointer; }
+.cite-expand.is-visible { display: block; }
+
+.answer-text { margin: 0 0 0.75rem 0; }
+.answer-text > .answer-text-para { margin: 0 0 0.5rem 0; white-space: pre-wrap; }
+.answer-text > .answer-text-para:last-child { margin-bottom: 0; }
+.answer-text > .answer-text-list { margin: 0.5rem 0; padding-left: 1.35rem; list-style-type: disc; }
+.answer-text > .answer-text-list:first-child { margin-top: 0; }
+.answer-text > .answer-text-list:last-child { margin-bottom: 0; }
+.answer-text > .answer-text-list li { margin-bottom: 0.35rem; }
+.answer-text > .answer-text-list li:last-child { margin-bottom: 0; }
