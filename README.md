@@ -77,7 +77,7 @@ Or: `uv run python main.py` (expects a working environment and `.env` loaded by 
 
 **`./run.sh`** runs **`./Ollama.sh --ollama-only`** first (ensures **:11434**; may start a detached **`ollama serve`** — see **`./Ollama.sh --help`**), then **`./install.sh`** if **`.venv`** is missing, then the app. For Ollama **and** Open WebUI in one terminal, use **`./Ollama.sh`** alone (~**8080**).
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Submit a question on the home page; the app searches Zulip, calls the configured LLM, and shows the answer with linked message excerpts.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port) for **Pair with RCers**. Use the nav link or [/zulip](http://127.0.0.1:8000/zulip) to **Ask Zulip** (search, LLM summary, linked excerpts).
 
 ## How it works (briefly)
 
@@ -91,7 +91,9 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port). Subm
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Home (search + past conversations) |
+| GET | `/` | Pair with RCers (`pair.html`) |
+| GET | `/pair` | Same as `/` |
+| GET | `/zulip` | Ask Zulip form + past conversations |
 | GET | `/conversation` | Result page (`?q=...` or `?id=...`) |
 | GET | `/config` | Public Zulip site hostname for permalinks (`zulip_site`) |
 | GET | `/ask?q=...` | Run agent; returns `id`, `messages`, `final_answer` |

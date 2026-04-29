@@ -23,11 +23,17 @@ Main aim:
 
 1. ✅ Improve categorisation + threading
 
-2. Improve FE 
+2.✅ Improve FE 
 - FE could use cards and a grid to look nicer (and some nice emoji)
 - Show names and pictures!
 - Another button = Open checkin as well as openDM
 - display other at the bottom of the list
+
+3a. simplify for hosting 
+- ✅ Bring Pair with RC'ers to be front and centre
+- ✅ Put zulip knowledge as a secondary tab
+
+- TBC do we remove Ollama
 
 3. Host it on Disco + OAUTH
 

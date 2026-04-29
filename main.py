@@ -38,7 +38,13 @@ def config():
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    with open("static/index.html") as f:
+    with open("static/pair.html") as f:
+        return f.read()
+
+
+@app.get("/zulip", response_class=HTMLResponse)
+def zulip_ask_page():
+    with open("static/zulip.html") as f:
         return f.read()
 
 

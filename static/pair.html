@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,9 +17,13 @@
       --checkin: #0d9488;
       --checkin-hover: #0f766e;
       --radius: 12px;
-      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
+      --shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 4px 12px rgba(0, 0, 0, .04);
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
@@ -27,22 +32,71 @@
       padding: 1.5rem 1.25rem 3rem;
       line-height: 1.45;
     }
-    .wrap { max-width: 1200px; margin: 0 auto; }
-    nav { margin-bottom: 1.25rem; }
-    nav a { text-decoration: none; color: var(--accent); font-size: 0.9rem; }
-    nav a:hover { text-decoration: underline; }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .site-header {
+      margin-bottom: 1.25rem;
+    }
+
+    .brand {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 0.65rem;
+    }
+
+    .app-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .app-nav .nav-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      background: #e8ebf2;
+      border: 1px solid transparent;
+    }
+
+    .app-nav .nav-item:hover {
+      color: var(--text);
+      background: #dfe3ec;
+    }
+
+    .app-nav .nav-item--active {
+      background: var(--card);
+      color: var(--text);
+      border-color: var(--border);
+      box-shadow: var(--shadow);
+    }
+
     h1 {
       margin: 0 0 0.35rem;
       font-size: 1.65rem;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
+
     .intro {
       color: var(--muted);
       font-size: 0.95rem;
       max-width: 42rem;
       margin-bottom: 1.75rem;
     }
+
     h2 {
       font-size: 1.05rem;
       font-weight: 650;
@@ -53,17 +107,24 @@
       align-items: center;
       gap: 0.45rem;
     }
-    h2 .emoji { font-size: 1.25rem; line-height: 1; }
+
+    h2 .emoji {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
     h2 .count {
       font-weight: 500;
       color: var(--muted);
       font-size: 0.88rem;
     }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 1rem;
     }
+
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -75,10 +136,12 @@
       align-items: flex-start;
       transition: box-shadow 0.15s ease, border-color 0.15s ease;
     }
+
     .card:hover {
       border-color: #c8d4f0;
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08), 0 8px 24px rgba(0,0,0,.06);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08), 0 8px 24px rgba(0, 0, 0, .06);
     }
+
     .avatar {
       width: 52px;
       height: 52px;
@@ -87,8 +150,9 @@
       flex-shrink: 0;
       background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
       border: 2px solid #fff;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
     }
+
     .avatar-fallback {
       display: flex;
       align-items: center;
@@ -97,17 +161,24 @@
       font-weight: 700;
       color: var(--accent);
     }
-    .card-body { min-width: 0; flex: 1; }
+
+    .card-body {
+      min-width: 0;
+      flex: 1;
+    }
+
     .card-name {
       font-weight: 700;
       font-size: 1.02rem;
       margin: 0 0 0.15rem;
     }
+
     .card-topic {
       font-size: 0.78rem;
       color: var(--muted);
       margin-bottom: 0.35rem;
     }
+
     .card-preview {
       font-size: 0.88rem;
       color: #3d4450;
@@ -117,12 +188,14 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+
     .card-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.45rem;
       align-items: center;
     }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -137,34 +210,60 @@
       cursor: pointer;
       font-family: inherit;
     }
+
     .btn-dm {
       background: var(--accent);
       color: #fff;
     }
-    .btn-dm:hover { background: var(--accent-hover); }
+
+    .btn-dm:hover {
+      background: var(--accent-hover);
+    }
+
     .btn-checkin {
       background: #fff;
       color: var(--checkin);
       border: 1px solid var(--checkin);
     }
+
     .btn-checkin:hover {
       background: #f0fdfa;
       border-color: var(--checkin-hover);
       color: var(--checkin-hover);
     }
+
     .btn-copy {
       background: #f1f3f8;
       color: var(--text);
       border: 1px solid var(--border);
     }
-    .btn-copy:hover { background: #e8ebf2; }
-    .copied-label { font-size: 0.78rem; color: #059669; display: none; }
-    #status { color: var(--muted); margin: 1rem 0; }
+
+    .btn-copy:hover {
+      background: #e8ebf2;
+    }
+
+    .copied-label {
+      font-size: 0.78rem;
+      color: #059669;
+      display: none;
+    }
+
+    #status {
+      color: var(--muted);
+      margin: 1rem 0;
+    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <nav><a href="/">← Home</a></nav>
+    <header class="site-header">
+      <p class="brand">Zulip Knowledge</p>
+      <nav class="app-nav" aria-label="Main pages">
+        <a href="/" class="nav-item nav-item--active" aria-current="page">🤝 Pair with RCers</a>
+        <a href="/zulip" class="nav-item">💬 Ask Zulip</a>
+      </nav>
+    </header>
     <h1>🤝 Pair with RCers</h1>
     <p class="intro">
       Based on recent <strong>#checkins</strong> — what people are working on right now.
@@ -375,4 +474,5 @@
     load();
   </script>
 </body>
+
 </html>

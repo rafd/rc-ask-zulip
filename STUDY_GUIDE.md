@@ -7,10 +7,11 @@
 
 ## How it works (high level)
 
-1. Web UI hits **`main.py`** (FastAPI, `/ask`).
-2. **`agent.py`** runs **`messages_for_agent(question)`** once immediately (real Zulip HTTP), injects that as the first tool round in the chat log, then loops: more optional searches via tools, then a **JSON answer** with **`section_1`–`section_3`**.
-3. **`zulip_search.py`** implements search and shapes each message for the model (including **sender** and **stream_id** when present). There is **no anonymization** in the pipeline (local/trusted use).
-4. **`db.py`** stores SQLite history.
+1. **`/`** and **`/pair`** serve **`static/pair.html`** (Pair with RCers). **`/zulip`** serves **`static/zulip.html`** (Ask Zulip form + past conversations). A shared **top nav** on both pages links between them (full page loads, no iframe). **`conversation.html`** “New question” links to **`/zulip`**.
+2. Web UI hits **`main.py`** (FastAPI, `/ask`).
+3. **`agent.py`** runs **`messages_for_agent(question)`** once immediately (real Zulip HTTP), injects that as the first tool round in the chat log, then loops: more optional searches via tools, then a **JSON answer** with **`section_1`–`section_3`**.
+4. **`zulip_search.py`** implements search and shapes each message for the model (including **sender** and **stream_id** when present). There is **no anonymization** in the pipeline (local/trusted use).
+5. **`db.py`** stores SQLite history.
 
 ## Key decisions and why
 
@@ -35,7 +36,7 @@
 - **`run.sh`** — **`install.sh`** if **`.venv`** is missing; loads **`.env`**; **`curl`** **`${OLLAMA_HOST:-http://127.0.0.1:11434}/api/tags`** and runs **`./Ollama.sh --ollama-only`** if that fails; **`exec`** **`main.py`** on **:8000**.
 - **`Ollama.sh`** — if **`ollama`** is not on **`PATH`**, runs **`setup_ollama.sh`** (when present). Then **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — require Homebrew, then **`brew bundle`** (same **`Brewfile`** as **`install.sh --brew`**).
 
-## Pair page (`/pair`)
+## Pair page (`/`, `/pair`)
 
 **What it does:** Shows what RCers are currently working on (from their `#checkins` topic thread) grouped by topic, with one-click DM links and a copyable pairing message.
 
@@ -51,7 +52,6 @@
 9. `checkin_near_url()` builds a **channel/topic/near/message** `#narrow` link from `stream_id`, `display_recipient` (stream name), topic subject, and the owner’s newest message `id` (Zulip’s `encode_hash_component` rules live in `encode_hash_component()`).
 10. Each API row includes **`avatar_url`** (from the anchor message) and **`checkin_url`** (empty if the Zulip payload lacks ids/stream info).
 11. `static/pair.html` renders a **responsive card grid** with avatars (or initials), section **emoji**, **Open check-in** + **Open DM**, and **Copy opener**. Bucket **Other** is always **last**; unknown bucket names sort just before Other.
-
 **Key decisions:**
 - **Keyword buckets over LLM clustering:** Fast, zero-cost, easy to tune. Trade-off: imprecise — "music" can contain keywords from other buckets, so regex uses `\b` word boundaries. LLM clustering would be more accurate but adds latency and cost.
 - **Multi-label classification (not first-match only):** One check-in can belong to several topics (for example Python + Cloud + DevOps), which improves pairing discovery for people doing cross-domain work. Trade-off: the same person can appear in multiple sections, so the UI can look more repetitive.
