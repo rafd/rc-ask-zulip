@@ -44,12 +44,13 @@
 2. `fetch_raw_checkins()` fetches up to 400 recent messages from the `#checkins` channel via Zulip API (no anonymization — real names and content are needed for the DM links and blurbs).
 3. Messages are sorted newest-first and `dedupe_latest()` keeps the **first occurrence per `sender_id`** (= most recent check-in), capped at 75 distinct people.
 4. Each person's `content` is stripped of HTML and truncated to a 200-char preview by `make_preview()`.
-5. `checkin_topics.classify()` matches the preview + topic subject against regex keyword buckets (AI, Games, Music, Rust, C, Web, Python, Systems, Math, Other). First match wins.
+5. `checkin_topics.classify()` matches the preview + topic subject against regex keyword buckets and returns all matches in bucket order. If nothing matches, it returns `["Other"]`.
 6. `dm_url()` constructs `{ZULIP_SITE}/#narrow/dm/{sender_id}` — opens a DM in the browser when the user is logged into Zulip.
 7. `static/pair.html` renders sections per bucket with **Open DM** links and a **Copy opener** button (uses `navigator.clipboard`).
 
 **Key decisions:**
 - **Keyword buckets over LLM clustering:** Fast, zero-cost, easy to tune. Trade-off: imprecise — "music" can contain keywords from other buckets, so regex uses `\b` word boundaries. LLM clustering would be more accurate but adds latency and cost.
+- **Multi-label classification (not first-match only):** One check-in can belong to several topics (for example Python + Cloud + DevOps), which improves pairing discovery for people doing cross-domain work. Trade-off: the same person can appear in multiple sections, so the UI can look more repetitive.
 - **No anonymization:** This endpoint reveals real names and work topics. It's equivalent to browsing `#checkins` while logged in, but centralised. Do not expose the server without auth if deploying broadly.
 - **`sender_id` for DM links (not email):** Zulip's `/#narrow/dm/{id}` pattern works without knowing the user's email. It opens their DM thread in the org you're logged into.
 - **`ZULIP_CHECKIN_STREAM` env var:** Defaults to `"checkins"`. Swap it to `"alumni checkins"` or another stream without code changes.

@@ -1,7 +1,7 @@
 import re
 
 # Maps bucket name → list of regex patterns (case-insensitive).
-# First matching bucket wins; unmatched → "Other".
+# We collect all matching buckets in defined order; unmatched → ["Other"].
 # Order matters: more specific / higher-signal buckets come first so generic
 # words ("game", "data") don't steal messages that are really about AI, etc.
 BUCKETS: dict[str, list[str]] = {
@@ -145,10 +145,12 @@ BUCKETS: dict[str, list[str]] = {
 }
 
 
-def classify(text: str) -> str:
-    """Return the first matching bucket name, or 'Other' if none match."""
+def classify(text: str) -> list[str]:
+    """Return all matching buckets in order, or ['Other'] if none match."""
+    matches: list[str] = []
     for bucket, patterns in BUCKETS.items():
         for pattern in patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                return bucket
-    return "Other"
+                matches.append(bucket)
+                break
+    return matches or ["Other"]

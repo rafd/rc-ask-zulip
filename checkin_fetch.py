@@ -107,7 +107,7 @@ def build_grouped(zulip_site: str) -> dict[str, list[dict]]:
     buckets: dict[str, list[dict]] = {}
     for msg in people:
         preview = make_preview(msg.get("content", ""))
-        bucket = classify(preview + " " + msg.get("subject", ""))
+        matched_buckets = classify(preview + " " + msg.get("subject", ""))
         entry = {
             "name": msg["sender_full_name"],
             "user_id": msg["sender_id"],
@@ -117,5 +117,6 @@ def build_grouped(zulip_site: str) -> dict[str, list[dict]]:
             "dm_url": dm_url(msg["sender_id"], zulip_site),
             "suggested_message": suggested_message(msg["sender_full_name"], preview),
         }
-        buckets.setdefault(bucket, []).append(entry)
+        for bucket in matched_buckets:
+            buckets.setdefault(bucket, []).append(entry)
     return buckets
