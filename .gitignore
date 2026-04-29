@@ -7,3 +7,4 @@ __pycache__/
 conversations.db
 *.plan.md
 .claude/*
+server.log

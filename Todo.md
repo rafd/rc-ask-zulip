@@ -15,6 +15,16 @@ Main aim:
 - Giving useful answers
 - Summarising checkins into groups
 
+
+# Summarising checkins into groups
+- Improve the REGEX
+    - Or increase the regex
+- Store a FEW categories per person!
+    - also have a way of bucketing categories e.g: Bevy & Godot all get bucketed to "Game Dev"
+- DONT limit to 1 message per check-in
+- SHOULD use OLLAMA as 
+- FE could use cards and a grid to look nicer (and some nice emoji)
+
 # Zulip Overview:
 - What is popping on Zulip this week (~50 people with 3 projects each) => Group them into rough topics
 - Just scoped for check-in channel from the last week.
