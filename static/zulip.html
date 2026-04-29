@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask Zulip — RC</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #fff;
+      --text: #1a1d26;
+      --muted: #5c6370;
+      --accent: #2563eb;
+      --border: #e2e5ec;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 4px 12px rgba(0, 0, 0, .04);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem 1.25rem 3rem;
+      line-height: 1.45;
+    }
+
+    .wrap {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .site-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .brand {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 0.65rem;
+    }
+
+    .app-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .app-nav .nav-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      background: #e8ebf2;
+      border: 1px solid transparent;
+    }
+
+    .app-nav .nav-item:hover {
+      color: var(--text);
+      background: #dfe3ec;
+    }
+
+    .app-nav .nav-item--active {
+      background: var(--card);
+      color: var(--text);
+      border-color: var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0 0 1.25rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    button[type="submit"] {
+      margin-top: 0.6rem;
+      padding: 0.5rem 1.35rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    button[type="submit"]:hover {
+      filter: brightness(0.95);
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      margin: 1.75rem 0 0.65rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .past-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .past-list li {
+      padding: 0.45rem 0;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+    }
+
+    .past-list a {
+      text-decoration: none;
+      color: var(--accent);
+      flex: 1;
+    }
+
+    .past-list a:hover {
+      text-decoration: underline;
+    }
+
+    .past-list .ts {
+      font-size: 0.8rem;
+      color: #888;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header class="site-header">
+      <p class="brand">Zulip Knowledge</p>
+      <nav class="app-nav" aria-label="Main pages">
+        <a href="/" class="nav-item">🤝 Pair with RCers</a>
+        <a href="/zulip" class="nav-item nav-item--active" aria-current="page">💬 Ask Zulip</a>
+      </nav>
+    </header>
+
+    <h1>💬 Ask Zulip</h1>
+    <h2>BETA - THIS DOES NOT WORK - and relies on OLLAMA which is not currently running or available!</h2>
+    <p class="lead">
+      Search public Zulip and get a structured summary with quotes linked to threads.
+    </p>
+    <br />
+
+
+    <form id="search-form">
+      <input type="text" id="query" placeholder="What do RCers think about…" required>
+      <button type="submit">Ask</button>
+    </form>
+
+    <h2>Past conversations</h2>
+    <ul class="past-list" id="past-list">
+      <li style="color:#888">Loading…</li>
+    </ul>
+  </div>
+
+  <script>
+    document.getElementById("search-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const q = document.getElementById("query").value.trim();
+      window.location.href = `/conversation?q=${encodeURIComponent(q)}`;
+    });
+
+    async function loadPast() {
+      const listEl = document.getElementById("past-list");
+      try {
+        const res = await fetch("/conversations");
+        const rows = await res.json();
+        if (rows.length === 0) {
+          listEl.innerHTML = '<li style="color:#888">No conversations yet.</li>';
+          return;
+        }
+        listEl.innerHTML = "";
+        for (const row of rows) {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = `/conversation?id=${row.id}`;
+          a.textContent = row.query;
+          const ts = document.createElement("span");
+          ts.className = "ts";
+          ts.textContent = new Date(row.created_at).toLocaleString();
+          li.appendChild(a);
+          li.appendChild(ts);
+          listEl.appendChild(li);
+        }
+      } catch {
+        listEl.innerHTML = '<li style="color:#888">Could not load past conversations.</li>';
+      }
+    }
+
+    loadPast();
+  </script>
+</body>
+
+</html>

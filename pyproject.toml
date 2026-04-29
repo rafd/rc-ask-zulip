@@ -5,8 +5,12 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.135.2",
+    "greenlet>=3.0.0",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.42.0",
     "zulip>=0.9.1",
     "openai>=1.0.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]

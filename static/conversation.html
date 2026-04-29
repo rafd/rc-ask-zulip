@@ -55,7 +55,7 @@
   </style>
 </head>
 <body>
-  <p><a href="/">&larr; New question</a></p>
+  <p><a href="/zulip">&larr; New question</a></p>
   <h2 id="question"></h2>
   <p id="status">Thinking...</p>
   <p id="error"></p>
@@ -213,13 +213,14 @@
                 h.className = "answer-section-heading";
                 h.textContent = section.heading.trim();
                 div.appendChild(h);
-              } else if (section.text) {
+              }
+              if (section.text) {
                 const wrap = document.createElement("div");
                 wrap.className = "answer-text";
                 appendAnswerTextBlocks(wrap, section.text);
-                if (!wrap.firstChild) continue;
-                div.appendChild(wrap);
-              } else if (Array.isArray(section.message_ids)) {
+                if (wrap.firstChild) div.appendChild(wrap);
+              }
+              if (Array.isArray(section.message_ids)) {
                 const inner = document.createElement("div");
                 inner.className = "cite-details-inner";
                 for (const id of section.message_ids) {
@@ -251,23 +252,24 @@
                   });
                   inner.appendChild(item);
                 }
-                if (inner.childElementCount === 0) continue;
-                const details = document.createElement("details");
-                details.className = "cite-details";
-                const summary = document.createElement("summary");
-                summary.className = "cite-summary";
-                const sumLabel = document.createElement("span");
-                sumLabel.className = "cite-summary-text";
-                sumLabel.textContent = "See what people are saying";
-                const chevron = document.createElement("span");
-                chevron.className = "cite-summary-chevron";
-                chevron.setAttribute("aria-hidden", "true");
-                chevron.textContent = ">";
-                summary.appendChild(sumLabel);
-                summary.appendChild(chevron);
-                details.appendChild(summary);
-                details.appendChild(inner);
-                div.appendChild(details);
+                if (inner.childElementCount > 0) {
+                  const details = document.createElement("details");
+                  details.className = "cite-details";
+                  const summary = document.createElement("summary");
+                  summary.className = "cite-summary";
+                  const sumLabel = document.createElement("span");
+                  sumLabel.className = "cite-summary-text";
+                  sumLabel.textContent = "See what people are saying";
+                  const chevron = document.createElement("span");
+                  chevron.className = "cite-summary-chevron";
+                  chevron.setAttribute("aria-hidden", "true");
+                  chevron.textContent = ">";
+                  summary.appendChild(sumLabel);
+                  summary.appendChild(chevron);
+                  details.appendChild(summary);
+                  details.appendChild(inner);
+                  div.appendChild(details);
+                }
               }
             }
           } else {

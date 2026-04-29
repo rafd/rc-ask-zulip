@@ -1,5 +1,10 @@
 .env
+.webui_secret_key
+.ollama-serve.log
 .venv/
 __pycache__/
 *.pyc
 conversations.db
+*.plan.md
+.claude/*
+server.log
