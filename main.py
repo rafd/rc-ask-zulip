@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from collections import deque
 
 import uvicorn
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ import db
 from agent import AgentAnswerError, run_agent
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 _log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
 _log_level = getattr(logging, _log_level_name, None)
@@ -60,19 +62,30 @@ def ask(q: str):
 
 @app.get("/ask-stream")
 def ask_stream(q: str):
+    def _sse(step: str, data: dict) -> str:
+        return f"data: {json.dumps({'step': step, 'data': data})}\n\n"
+
     def event_generator():
+        pending_events = deque()
+
         def progress_callback(step: str, data: dict):
-            event_data = {"step": step, "data": data}
-            yield f"data: {json.dumps(event_data)}\n\n"
+            pending_events.append(_sse(step, data))
 
         try:
             messages, final_answer = run_agent(q, progress_callback=progress_callback)
+            while pending_events:
+                yield pending_events.popleft()
             conv_id = db.save_conversation(q, messages, final_answer)
-            event_data = {"step": "complete", "data": {"id": conv_id, "final_answer": final_answer}}
-            yield f"data: {json.dumps(event_data)}\n\n"
+            yield _sse("complete", {"id": conv_id, "messages": messages, "final_answer": final_answer})
         except AgentAnswerError as e:
-            event_data = {"step": "error", "data": {"message": e.message}}
-            yield f"data: {json.dumps(event_data)}\n\n"
+            while pending_events:
+                yield pending_events.popleft()
+            yield _sse("error", {"message": e.message})
+        except Exception:
+            logger.exception("Unexpected error in ask-stream")
+            while pending_events:
+                yield pending_events.popleft()
+            yield _sse("error", {"message": "Unexpected server error while streaming response."})
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

@@ -308,21 +308,31 @@
       const statusEl = document.getElementById("status");
       const errorEl = document.getElementById("error");
       const convEl = document.getElementById("conversation");
+      let streamFinished = false;
 
       try {
         const eventSource = new EventSource(`/ask-stream?q=${encodeURIComponent(q)}`);
+
+        eventSource.onopen = () => {
+          statusEl.textContent = "Connected. Starting search...";
+        };
 
         eventSource.onmessage = (event) => {
           try {
             const { step, data } = JSON.parse(event.data);
 
             if (step === "complete") {
+              console.log("✨ Stream complete. Messages count:", data.messages ? data.messages.length : 0);
+              console.log("✨ Final answer:", data.final_answer);
+              streamFinished = true;
               eventSource.close();
               statusEl.textContent = "";
               history.replaceState(null, "", `/conversation?id=${data.id}`);
               convEl.innerHTML = "";
-              render([], data.final_answer, convEl);
+              render(data.messages || [], data.final_answer, convEl);
             } else if (step === "error") {
+              console.error("❌ Backend error:", data.message);
+              streamFinished = true;
               eventSource.close();
               statusEl.textContent = "";
               errorEl.textContent = `Error: ${data.message}`;
@@ -331,14 +341,20 @@
               statusEl.textContent = msg;
             }
           } catch (err) {
-            console.error("Error parsing event:", err);
+            console.error("💥 Error parsing event:", err, "Raw event:", event.data);
+            streamFinished = true;
+            eventSource.close();
+            statusEl.textContent = "";
+            errorEl.textContent = `Stream parse error: ${err.message}`;
           }
         };
 
         eventSource.onerror = () => {
           eventSource.close();
-          statusEl.textContent = "";
-          errorEl.textContent = "Connection lost";
+          if (!streamFinished) {
+            statusEl.textContent = "";
+            errorEl.textContent = "Connection lost before response completed.";
+          }
         };
       } catch (err) {
         statusEl.textContent = "";

@@ -23,11 +23,25 @@
 - **Strict three-part JSON** keeps the UI simple and avoids unstructured blobs.
 - **Tool turns omit `response_format`** when possible so local servers are less likely to break tool calling; a **repair** completion uses **`response_format`** if the first final reply is not valid JSON.
 - **Server-Sent Events (SSE) for progress streaming:** `/ask-stream` endpoint uses SSE (text/event-stream) instead of WebSocket because: (1) it's one-way (server → client), (2) HTTP-based and simpler to debug, (3) no external dependencies on the frontend. Progress events are sent as JSON-formatted SSE data events with `step` and `data` fields. The backend calls a `progress_callback` at key points (bootstrap search, each agent turn, tool searches) so users see live updates instead of a blank “Thinking...” state.
+- **Progress callback contract fix (important):** `run_agent` expects `progress_callback` to be a normal function. We now collect progress events in a queue and explicitly flush that queue from the SSE generator.  
+  - Alternative: make `run_agent` async and `yield` events directly.  
+  - Why we chose queue + flush: smallest safe change, no agent API rewrite.  
+  - Tradeoff: progress is streamed at deterministic flush points, not token-by-token.  
+  - Analogy: The agent drops status notes into an outbox, and the SSE route mails them to the browser.
+- **Catch-all streaming error event:** `/ask-stream` now catches unexpected exceptions (not just `AgentAnswerError`) and emits a final `error` SSE payload.  
+  - Alternative: let exception crash the stream.  
+  - Why we chose structured error event: FE can always exit “Thinking…” and show a clear failure state.  
+  - Tradeoff: users see a generic message; detailed traces stay server-side in logs.
 - **Cons:** tool/JSON behavior depends on the server; for localhost Ollama, something must serve **:11434** (**`./Ollama.sh`**, desktop app, or **`ollama serve`**).
 
 ## How each piece works
 
 - **`main.py`** — Routes, static files, `/config` (Zulip site for links), save chats. **`/ask`** returns full result at once (blocking); **`/ask-stream`** returns SSE stream of progress events plus final answer.
+- **`/ask-stream` event flow (current):**
+  - Build a small helper that formats every SSE payload as `{"step": "...", "data": {...}}`.
+  - Progress callback appends events to an in-memory queue.
+  - After `run_agent` returns (or raises), queued progress events are flushed first.
+  - Route then emits one terminal event: `complete` on success, `error` on failures.
 - **`agent.py`** — Bootstrap tool round, chat loop, validates JSON; repair pass on failure. **`run_agent()`** accepts optional `progress_callback(step, data)` function to emit live progress updates at each major step.
 - **`zulip_search.py`** — `ZULIP_*` env, search public streams, `prepare_for_agent`.
 - **`anonymize.py`** — Not used by the app (legacy).
@@ -41,9 +55,14 @@
 - Small local models are weaker at tools/JSON than big cloud APIs.
 - Zulip recall depends on search quality and your query.
 - `OPENAI_BASE_URL` on localhost with Ollama down → failed requests until **`./Ollama.sh`**, the desktop app, or **`ollama serve`** is running.
+- Before this fix, unexpected model/server exceptions could terminate SSE without an `error` event, leaving FE stuck on “Thinking...”.
+- We now avoid silent terminal states, but still do not stream assistant tokens progressively (final answer renders at `complete`).
 - Zulip credentials are real secrets; the model sees real names and message text.
 
 ## Key metrics and results
 
 - No fixed benchmark in the repo.
 - **Latency** and **quality** depend on hardware, `OPENAI_MODEL`, and how much Zulip context you pass in.
+- Streaming reliability checks after the fix:
+  - Automated tests: `3 passed` for progress ordering, successful completion, and error terminal events.
+  - Manual check: live SSE stream shows progress steps and `complete` terminal event.
