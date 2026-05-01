@@ -29,13 +29,26 @@ A small web app for [Recurse Center](https://www.recurse.com/) participants: ask
 
 1. Clone the repo and enter the directory.
 
-2. Create a `.env` file in the project root:
+2. Create a `.env` file in the project root (see [`.env.example`](.env.example)):
 
    ```env
    ZULIP_SITE=your-org.zulipchat.com
    ZULIP_EMAIL=your-bot-or-account@example.com
    ZULIP_API_KEY=...
    ```
+
+   **Recurse Center OAuth** (required — only RC members can use the app):
+
+   1. Register an app at [recurse.com/settings/apps](https://www.recurse.com/settings/apps).
+   2. Set its redirect URI to `http://localhost:8000/auth/callback` (match `RC_REDIRECT_URI` below).
+   3. Add to `.env`:
+
+      ```env
+      RC_CLIENT_ID=...
+      RC_CLIENT_SECRET=...
+      RC_REDIRECT_URI=http://localhost:8000/auth/callback
+      SESSION_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')
+      ```
 
    Optional LLM overrides (defaults work with local Ollama):
 
@@ -91,14 +104,18 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port) for *
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Pair with RCers (`pair.html`) |
+| GET | `/` | Pair with RCers (`pair.html`) — landing page if not logged in |
 | GET | `/pair` | Same as `/` |
-| GET | `/zulip` | Ask Zulip form + past conversations |
-| GET | `/conversation` | Result page (`?q=...` or `?id=...`) |
+| GET | `/zulip` | Ask Zulip form + past conversations (auth required) |
+| GET | `/conversation` | Result page (auth required) |
 | GET | `/config` | Public Zulip site hostname for permalinks (`zulip_site`) |
-| GET | `/ask?q=...` | Run agent; returns `id`, `messages`, `final_answer` |
-| GET | `/conversations` | List recent saved conversations |
-| GET | `/conversation-data/{id}` | Load one conversation |
+| GET | `/login` | Start RC OAuth flow |
+| GET | `/auth/callback` | OAuth redirect target |
+| GET | `/logout` | Clear session and return to landing |
+| GET | `/ask?q=...` | Run agent (auth required); returns `id`, `messages`, `final_answer` |
+| GET | `/api/checkin-pair` | Grouped check-in pairing data (auth required) |
+| GET | `/conversations` | List recent saved conversations (auth required) |
+| GET | `/conversation-data/{id}` | Load one conversation (auth required) |
 
 ## Project layout
 

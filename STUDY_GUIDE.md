@@ -61,12 +61,34 @@
 - **`sender_id` for DM links (not email):** Zulip's `/#narrow/dm/{id}` pattern works without knowing the user's email. It opens their DM thread in the org you're logged into.
 - **`ZULIP_CHECKIN_STREAM` env var:** Defaults to `"checkins"`. Swap it to `"alumni checkins"` or another stream without code changes.
 - **Batch scoping TBD:** The MVP uses anyone with a recent check-in. A future enhancement could filter by a Zulip user group (`ZULIP_BATCH_USER_GROUP_ID`) to show only current-batch members.
+## Authentication (RC OAuth)
+
+**What it does:** Gates the entire app behind Recurse Center login. Only RC members (current or alum) can use it. Unauthenticated visitors see a landing page.
+
+**How it works (the OAuth 2.0 authorization-code flow):**
+1. User hits `/`. `_serve_app_or_landing()` checks `request.session["user"]` — empty, so we serve `static/landing.html`.
+2. User clicks "Login with Recurse Center". `GET /login` calls Authlib's `oauth.recurse.authorize_redirect(...)`, which builds a URL like `https://www.recurse.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&state=<random>` and stores `state` in the session (a CSRF guard).
+3. RC asks the user to grant permission, then redirects back to `/auth/callback?code=<short-lived>&state=<same>`.
+4. `auth_callback` calls `oauth.recurse.authorize_access_token(request)`, which validates `state`, POSTs `code` to `https://www.recurse.com/oauth/token`, and gets back `{access_token, refresh_token, expires_in: 7200, ...}`.
+5. We then `GET /api/v1/people/me` with the bearer token, store `{id, name, email, image_path}` in `session["user"]` and the full token dict in `session["token"]`, and redirect to `/`.
+6. On every protected route, the `require_user` dependency reads the session and calls `get_valid_token()`, which auto-refreshes when the access token has < 60s of life left.
+
+**Token refresh:** RC's refresh tokens are *single-use* — each refresh returns a new pair. `get_valid_token()` writes both new values back into the session. If RC rejects the refresh (`invalid_grant` — user revoked access, or refresh expired), we clear the session and return 401. Concurrent in-flight refreshes from the same browser would race and invalidate each other; acceptable for this app's traffic but worth knowing.
+
+**Why session cookies (not JWTs):** Starlette's `SessionMiddleware` signs a small server-side payload with `SESSION_SECRET` and stores it as an opaque cookie. Logout is just `session.clear()` — instant revocation. JWTs would require a separate denylist.
+
+**Why Authlib (not the official RC Python SDK):** The Stainless-generated SDK calls RC API endpoints once you have a token; it doesn't implement the redirect/state/callback flow a web app needs. Authlib does, natively for Starlette/FastAPI.
+
+**Required env vars:** `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_REDIRECT_URI`, `SESSION_SECRET`. See `.env.example`.
+
 ## Things that don't work well
 
 - Small local models are weaker at tools/JSON than big cloud APIs.
 - Zulip recall depends on search quality and your query.
 - `OPENAI_BASE_URL` on localhost with Ollama down → failed requests until **`./Ollama.sh`**, the desktop app, or **`ollama serve`** is running.
 - Zulip credentials are real secrets; the model sees real names and message text.
+- OAuth refresh-token races: with single-use refresh tokens, two concurrent expired-token requests from the same session can invalidate each other and force a re-login. No locking is implemented because traffic is one-user-clicking-around.
+- `RC_REDIRECT_URI` must match the redirect URI registered on recurse.com *exactly* (scheme, host, port, path). Mismatches surface as opaque OAuth errors.
 
 ## Key metrics and results
 
