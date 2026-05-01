@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RC Ask Zulip</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #fff;
+      --border: #e2e5ec;
+      --text: #1a1d26;
+      --muted: #5c6370;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 4px 12px rgba(0, 0, 0, .04);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem 1.25rem 3rem;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .brand {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 1.25rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 2rem;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 1.75rem;
+    }
+
+    .lede {
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+    }
+
+    .features {
+      margin: 0 0 1.75rem;
+      padding-left: 1.25rem;
+    }
+
+    .features li {
+      margin-bottom: 0.4rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.65rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid transparent;
+    }
+
+    .btn--primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn--primary:hover { background: var(--accent-hover); }
+
+    .btn--secondary {
+      background: #e8ebf2;
+      color: var(--text);
+    }
+
+    .btn--secondary:hover { background: #dfe3ec; }
+
+    .note {
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <p class="brand">Zulip Knowledge</p>
+    <div class="card">
+      <h1>RC Ask Zulip</h1>
+      <p class="lede">A small tool for Recursers to navigate community knowledge from Zulip.</p>
+      <ul class="features">
+        <li>🤝 <strong>Pair with RCers</strong> — find people looking for pairing partners from recent check-ins.</li>
+        <li>💬 <strong>Ask Zulip</strong> — search the Zulip archive in plain English and get cited answers.</li>
+      </ul>
+      <div class="actions">
+        <a class="btn btn--primary" href="/login">Login with Recurse Center</a>
+        <a class="btn btn--secondary" href="https://www.recurse.com/" target="_blank" rel="noopener">Visit recurse.com</a>
+      </div>
+      <p class="note">You must be a current or alum Recurser to use this app.</p>
+    </div>
+  </div>
+</body>
+
+</html>
