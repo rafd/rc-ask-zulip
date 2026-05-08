@@ -34,6 +34,8 @@
 - **`db.py`** — SQLite persistence.
 - **`install.sh`** — `uv sync`, optional `--brew`.
 - **`run.sh`** — **`install.sh`** if **`.venv`** is missing; loads **`.env`**; **`curl`** **`${OLLAMA_HOST:-http://127.0.0.1:11434}/api/tags`** and runs **`./Ollama.sh --ollama-only`** if that fails; **`exec`** **`main.py`** on **:8000**.
+- **`runCLI.sh`** — For the **check-in terminal UI** only (no Ollama): ensures **`.venv`** and **`.env`**; if **`http://127.0.0.1:8000/api/checkin-pair`** already works, reuses that server; otherwise starts **`uvicorn main:app`** on **:8000** without **`--reload`**, waits until **`/api/checkin-pair`** responds, then runs **`node dist/cli.js`** from **`Rc-Checkins-TUI/rcAskZulip`**. On exit, stops the server **if this script started it**. If port **8000** is taken but the check-in URL fails, the script exits with an error (another process is blocking the port). The TUI hardcodes **`localhost:8000`**, so keep that port. **Node.js ≥ 22** and **npm** are required the first time ( **`npm ci`** + **`npm run build`** when **`dist/cli.js`** is missing).
+- **`Rc-Checkins-TUI/`** — **Git submodule** ([Rc-Checkins-TUI](https://github.com/Tawfiqh/Rc-Checkins-TUI)): Ink + React CLI that **`fetch`**es **`GET http://localhost:8000/api/checkin-pair`**. The npm package lives in **`Rc-Checkins-TUI/rcAskZulip/`**. Clone this repo with **`git clone --recurse-submodules`**, or after clone run **`git submodule update --init --recursive`**. The CLI sends **no cookies**; use **`DEV_AUTH_BYPASS=1`** in **`.env`** locally so **`require_user`** accepts the request. You still need valid **`ZULIP_*`** (and related) settings for real check-in data.
 - **`Ollama.sh`** — if **`ollama`** is not on **`PATH`**, runs **`setup_ollama.sh`** (when present). Then **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — require Homebrew, then **`brew bundle`** (same **`Brewfile`** as **`install.sh --brew`**).
 
 ## Pair page (`/`, `/pair`)
@@ -61,14 +63,67 @@
 - **`sender_id` for DM links (not email):** Zulip's `/#narrow/dm/{id}` pattern works without knowing the user's email. It opens their DM thread in the org you're logged into.
 - **`ZULIP_CHECKIN_STREAM` env var:** Defaults to `"checkins"`. Swap it to `"alumni checkins"` or another stream without code changes.
 - **Batch scoping TBD:** The MVP uses anyone with a recent check-in. A future enhancement could filter by a Zulip user group (`ZULIP_BATCH_USER_GROUP_ID`) to show only current-batch members.
+## Authentication (RC OAuth)
+
+**What it does:** Gates the entire app behind Recurse Center login. Only RC members (current or alum) can use it. Unauthenticated visitors see a landing page.
+
+**How it works (the OAuth 2.0 authorization-code flow):**
+1. User hits `/`. `_serve_app_or_landing()` checks `request.session["user"]` — empty, so we serve `static/landing.html`.
+2. User clicks "Login with Recurse Center". `GET /login` calls Authlib's `oauth.recurse.authorize_redirect(...)`, which builds a URL like `https://www.recurse.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&state=<random>` and stores `state` in the session (a CSRF guard).
+3. RC asks the user to grant permission, then redirects back to `/auth/callback?code=<short-lived>&state=<same>`.
+4. `auth_callback` calls `oauth.recurse.authorize_access_token(request)`, which validates `state`, POSTs `code` to `https://www.recurse.com/oauth/token`, and gets back `{access_token, refresh_token, expires_in: 7200, ...}`.
+5. We then `GET /api/v1/people/me` with the bearer token, store `{id, name, email, image_path}` in `session["user"]` and the full token dict in `session["token"]`, and redirect to `/`.
+6. On every protected route, the `require_user` dependency reads the session and calls `get_valid_token()`, which auto-refreshes when the access token has < 60s of life left.
+
+**Token refresh:** RC's refresh tokens are *single-use* — each refresh returns a new pair. `get_valid_token()` writes both new values back into the session. If RC rejects the refresh (`invalid_grant` — user revoked access, or refresh expired), we clear the session and return 401. Concurrent in-flight refreshes from the same browser would race and invalidate each other; acceptable for this app's traffic but worth knowing.
+
+**Why session cookies (not JWTs):** Starlette's `SessionMiddleware` signs a small server-side payload with `SESSION_SECRET` and stores it as an opaque cookie. Logout is just `session.clear()` — instant revocation. JWTs would require a separate denylist.
+
+**Dev bypass (`DEV_AUTH_BYPASS`):** For local work without RC OAuth credentials, set `DEV_AUTH_BYPASS` to `1`, `true`, or `yes`. `auth.current_user` and `auth.require_user` then return a fixed stub user (optional `DEV_AUTH_BYPASS_NAME` for the label in the UI). No session token is created; RC API calls from OAuth are skipped. **Never set this in production** — it removes the gate entirely.
+
+**Why Authlib (not the official RC Python SDK):** The Stainless-generated SDK calls RC API endpoints once you have a token; it doesn't implement the redirect/state/callback flow a web app needs. Authlib does, natively for Starlette/FastAPI.
+
+**Required env vars:** `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_REDIRECT_URI`, `SESSION_SECRET`. See `.env.example`.
+
 ## Things that don't work well
 
 - Small local models are weaker at tools/JSON than big cloud APIs.
 - Zulip recall depends on search quality and your query.
 - `OPENAI_BASE_URL` on localhost with Ollama down → failed requests until **`./Ollama.sh`**, the desktop app, or **`ollama serve`** is running.
 - Zulip credentials are real secrets; the model sees real names and message text.
+- OAuth refresh-token races: with single-use refresh tokens, two concurrent expired-token requests from the same session can invalidate each other and force a re-login. No locking is implemented because traffic is one-user-clicking-around.
+- `RC_REDIRECT_URI` must match the redirect URI registered on recurse.com *exactly* (scheme, host, port, path). Mismatches surface as opaque OAuth errors.
 
 ## Key metrics and results
 
 - No fixed benchmark in the repo.
 - **Latency** and **quality** depend on hardware, `OPENAI_MODEL`, and how much Zulip context you pass in.
+
+## Deployment (Disco)
+
+### What changes for Disco
+
+- Disco expects two repo-root files: `disco.json` and `Dockerfile`.
+- `disco.json` tells Disco which service port the app listens on (`8080`).
+- The container starts `uvicorn` directly on `0.0.0.0:8080` so traffic from the Disco reverse proxy can reach it.
+
+### Production OAuth setup (RC login)
+
+- Keep using the same RC OAuth flow (`/login` -> `/auth/callback`), but update env values for the deployed domain.
+- Register `https://<your-domain>/auth/callback` in RC app settings and set `RC_REDIRECT_URI` to the exact same value.
+- Set `SESSION_COOKIE_SECURE=true` in production so the browser only sends session cookies over HTTPS.
+- Keep `DEV_AUTH_BYPASS=0` (or unset) in production. Think of this like "leave the side door locked."
+
+### LLM setup in containers
+
+- Local default is `OPENAI_BASE_URL=http://localhost:11434/v1` (Ollama).
+- In Disco, `localhost` usually points to the app container itself, not your laptop.
+- For production, point `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `OPENAI_MODEL` to a reachable API endpoint.
+- Analogy: local Ollama is like a printer plugged into your desk; production needs a network printer everyone can reach.
+
+### Data persistence tradeoff
+
+- Conversations are saved in `conversations.db` (SQLite file in the working directory).
+- If container storage is ephemeral, redeploys can wipe that file.
+- This is simple and fast for MVPs, but weak for long-term history.
+- Better long-term option: attach persistent storage (if available) or move to a managed database.
