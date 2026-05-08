@@ -17,6 +17,7 @@ if [[ ! -d "$SCRIPT_DIR/.venv" ]]; then
   echo "📦 No .venv found; running ./install.sh"
   "$SCRIPT_DIR/install.sh"
 fi
+uv sync
 echo "✅ Virtual environment setup complete"
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

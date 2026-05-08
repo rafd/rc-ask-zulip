@@ -92,6 +92,27 @@ Or: `uv run python main.py` (expects a working environment and `.env` loaded by 
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (default uvicorn port) for **Pair with RCers**. Use the nav link or [/zulip](http://127.0.0.1:8000/zulip) to **Ask Zulip** (search, LLM summary, linked excerpts).
 
+## Deploying to Disco (community server)
+
+This repo now includes `disco.json` and `Dockerfile` at the root, which Disco requires to build and deploy.
+
+1. Join the community Disco server with the CLI flow in [`Docs/rc_disco.md`](Docs/rc_disco.md).
+2. Ensure the server's GitHub App is authorized for this repo.
+3. Create a Disco project for this repo and point your app domain to the Disco server.
+4. Configure production env vars in Disco:
+   - `RC_CLIENT_ID`, `RC_CLIENT_SECRET`
+   - `RC_REDIRECT_URI=https://<your-domain>/auth/callback` (must exactly match recurse.com app settings)
+   - `SESSION_SECRET` (strong random value)
+   - `SESSION_COOKIE_SECURE=true`
+   - `DEV_AUTH_BYPASS=0` (or unset)
+   - `ZULIP_SITE`, `ZULIP_API_KEY`
+   - `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL` pointing to a reachable API
+
+Notes:
+- The container runs `uvicorn` on `0.0.0.0:8080` (see `Dockerfile` + `disco.json`).
+- `OPENAI_BASE_URL=http://localhost:11434/v1` is a local-dev default and usually will not work in Disco unless Ollama is separately reachable from the container.
+- Conversation history is stored in `conversations.db` (SQLite). Without persistent storage, redeploys can lose history.
+
 ## How it works (briefly)
 
 - **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (`main.py`) serves static pages and JSON APIs.

@@ -6,6 +6,7 @@ inspect its contents directly — we drive the flow through real endpoints and
 assert observable behavior.
 """
 
+import importlib
 import os
 import time
 from urllib.parse import parse_qs, urlparse
@@ -64,6 +65,14 @@ def authed_client(client):
     return client
 
 
+def _reload_app_modules():
+    """Pick up auth env flags (e.g. DEV_AUTH_BYPASS) after they change."""
+    import auth
+
+    importlib.reload(auth)
+    importlib.reload(main)
+
+
 def test_landing_page_shown_when_unauthenticated(client):
     resp = client.get("/")
     assert resp.status_code == 200
@@ -73,6 +82,24 @@ def test_landing_page_shown_when_unauthenticated(client):
 def test_protected_json_route_returns_401_when_unauthenticated(client):
     resp = client.get("/ask?q=hi")
     assert resp.status_code == 401
+
+
+def test_dev_bypass_serves_app_without_login(monkeypatch):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    _reload_app_modules()
+    c = TestClient(main.app, follow_redirects=False)
+    resp = c.get("/")
+    assert resp.status_code == 200
+    assert "Login with Recurse Center" not in resp.text
+
+
+def test_dev_bypass_allows_protected_json_without_session(monkeypatch):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    _reload_app_modules()
+    c = TestClient(main.app, follow_redirects=False)
+    resp = c.get("/conversations")
+    assert resp.status_code == 200
+    assert resp.json() == []
 
 
 def test_login_redirects_to_recurse(client):

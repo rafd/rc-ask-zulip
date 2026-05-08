@@ -34,6 +34,8 @@
 - **`db.py`** — SQLite persistence.
 - **`install.sh`** — `uv sync`, optional `--brew`.
 - **`run.sh`** — **`install.sh`** if **`.venv`** is missing; loads **`.env`**; **`curl`** **`${OLLAMA_HOST:-http://127.0.0.1:11434}/api/tags`** and runs **`./Ollama.sh --ollama-only`** if that fails; **`exec`** **`main.py`** on **:8000**.
+- **`runCLI.sh`** — For the **check-in terminal UI** only (no Ollama): ensures **`.venv`** and **`.env`**; if **`http://127.0.0.1:8000/api/checkin-pair`** already works, reuses that server; otherwise starts **`uvicorn main:app`** on **:8000** without **`--reload`**, waits until **`/api/checkin-pair`** responds, then runs **`node dist/cli.js`** from **`Rc-Checkins-TUI/rcAskZulip`**. On exit, stops the server **if this script started it**. If port **8000** is taken but the check-in URL fails, the script exits with an error (another process is blocking the port). The TUI hardcodes **`localhost:8000`**, so keep that port. **Node.js ≥ 22** and **npm** are required the first time ( **`npm ci`** + **`npm run build`** when **`dist/cli.js`** is missing).
+- **`Rc-Checkins-TUI/`** — **Git submodule** ([Rc-Checkins-TUI](https://github.com/Tawfiqh/Rc-Checkins-TUI)): Ink + React CLI that **`fetch`**es **`GET http://localhost:8000/api/checkin-pair`**. The npm package lives in **`Rc-Checkins-TUI/rcAskZulip/`**. Clone this repo with **`git clone --recurse-submodules`**, or after clone run **`git submodule update --init --recursive`**. The CLI sends **no cookies**; use **`DEV_AUTH_BYPASS=1`** in **`.env`** locally so **`require_user`** accepts the request. You still need valid **`ZULIP_*`** (and related) settings for real check-in data.
 - **`Ollama.sh`** — if **`ollama`** is not on **`PATH`**, runs **`setup_ollama.sh`** (when present). Then **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — require Homebrew, then **`brew bundle`** (same **`Brewfile`** as **`install.sh --brew`**).
 
 ## Pair page (`/`, `/pair`)
@@ -77,6 +79,8 @@
 
 **Why session cookies (not JWTs):** Starlette's `SessionMiddleware` signs a small server-side payload with `SESSION_SECRET` and stores it as an opaque cookie. Logout is just `session.clear()` — instant revocation. JWTs would require a separate denylist.
 
+**Dev bypass (`DEV_AUTH_BYPASS`):** For local work without RC OAuth credentials, set `DEV_AUTH_BYPASS` to `1`, `true`, or `yes`. `auth.current_user` and `auth.require_user` then return a fixed stub user (optional `DEV_AUTH_BYPASS_NAME` for the label in the UI). No session token is created; RC API calls from OAuth are skipped. **Never set this in production** — it removes the gate entirely.
+
 **Why Authlib (not the official RC Python SDK):** The Stainless-generated SDK calls RC API endpoints once you have a token; it doesn't implement the redirect/state/callback flow a web app needs. Authlib does, natively for Starlette/FastAPI.
 
 **Required env vars:** `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_REDIRECT_URI`, `SESSION_SECRET`. See `.env.example`.
@@ -94,3 +98,32 @@
 
 - No fixed benchmark in the repo.
 - **Latency** and **quality** depend on hardware, `OPENAI_MODEL`, and how much Zulip context you pass in.
+
+## Deployment (Disco)
+
+### What changes for Disco
+
+- Disco expects two repo-root files: `disco.json` and `Dockerfile`.
+- `disco.json` tells Disco which service port the app listens on (`8080`).
+- The container starts `uvicorn` directly on `0.0.0.0:8080` so traffic from the Disco reverse proxy can reach it.
+
+### Production OAuth setup (RC login)
+
+- Keep using the same RC OAuth flow (`/login` -> `/auth/callback`), but update env values for the deployed domain.
+- Register `https://<your-domain>/auth/callback` in RC app settings and set `RC_REDIRECT_URI` to the exact same value.
+- Set `SESSION_COOKIE_SECURE=true` in production so the browser only sends session cookies over HTTPS.
+- Keep `DEV_AUTH_BYPASS=0` (or unset) in production. Think of this like "leave the side door locked."
+
+### LLM setup in containers
+
+- Local default is `OPENAI_BASE_URL=http://localhost:11434/v1` (Ollama).
+- In Disco, `localhost` usually points to the app container itself, not your laptop.
+- For production, point `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `OPENAI_MODEL` to a reachable API endpoint.
+- Analogy: local Ollama is like a printer plugged into your desk; production needs a network printer everyone can reach.
+
+### Data persistence tradeoff
+
+- Conversations are saved in `conversations.db` (SQLite file in the working directory).
+- If container storage is ephemeral, redeploys can wipe that file.
+- This is simple and fast for MVPs, but weak for long-term history.
+- Better long-term option: attach persistent storage (if available) or move to a managed database.

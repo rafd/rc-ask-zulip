@@ -15,6 +15,21 @@ RC_AUTHORIZE_URL = "https://www.recurse.com/oauth/authorize"
 RC_TOKEN_URL = "https://www.recurse.com/oauth/token"
 RC_API_BASE_URL = "https://www.recurse.com/api/v1/"
 
+
+def _dev_auth_bypass_enabled() -> bool:
+    v = os.environ.get("DEV_AUTH_BYPASS", "").strip().lower()
+    return v in ("1", "true", "yes")
+
+
+def _dev_bypass_user() -> dict:
+    return {
+        "id": 0,
+        "name": os.environ.get("DEV_AUTH_BYPASS_NAME", "Dev (no OAuth)"),
+        "email": "dev@localhost",
+        "image_path": "",
+    }
+
+
 oauth = OAuth()
 oauth.register(
     name="recurse",
@@ -33,6 +48,8 @@ def _now() -> float:
 
 def current_user(request: Request) -> dict | None:
     """Return the user dict stored in the session, or None."""
+    if _dev_auth_bypass_enabled():
+        return _dev_bypass_user()
     return request.session.get("user")
 
 
@@ -72,6 +89,8 @@ async def get_valid_token(request: Request) -> dict:
 
 async def require_user(request: Request) -> dict:
     """FastAPI dependency: require a logged-in user with a valid token."""
+    if _dev_auth_bypass_enabled():
+        return _dev_bypass_user()
     user = request.session.get("user")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")

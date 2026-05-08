@@ -1,0 +1,3 @@
+[submodule "Rc-Checkins-TUI"]
+	path = Rc-Checkins-TUI
+	url = https://github.com/Tawfiqh/Rc-Checkins-TUI.git

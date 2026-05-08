@@ -150,8 +150,13 @@ def conversation_data(conv_id: int, user: dict = Depends(require_user)):
 
 
 if __name__ == "__main__":
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    reload_enabled = os.getenv("UVICORN_RELOAD", "").lower() in ("1", "true", "yes")
     uvicorn.run(
         "main:app",
-        reload=True,
+        host=host,
+        port=port,
+        reload=reload_enabled,
         log_level=_log_level_name.lower(),
     )
