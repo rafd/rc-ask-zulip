@@ -1,6 +1,9 @@
 """Unit tests for checkin_fetch and checkin_topics (no real Zulip calls)."""
 import pytest
 
+import checkin_classifier
+import db
+from checkin_classifier import _normalize_labels, classify_cached, classify_with_llm
 from checkin_fetch import (
     build_grouped,
     build_threads,
@@ -12,6 +15,15 @@ from checkin_fetch import (
     suggested_message,
 )
 from checkin_topics import classify
+
+
+@pytest.fixture
+def temp_db(tmp_path, monkeypatch):
+    """Point db at a fresh sqlite file and init the schema."""
+    db_path = tmp_path / "test.db"
+    monkeypatch.setattr(db, "DB_PATH", str(db_path))
+    db.init_db()
+    yield db_path
 
 
 # --- strip_html ---
@@ -272,3 +284,162 @@ def test_classify_web():
 def test_classify_multiple_buckets():
     result = classify("Building a Python API on AWS with Docker and React")
     assert result == ["Web", "Python", "DevOps", "Cloud"]
+
+
+# --- _normalize_labels ---
+
+def test_normalize_labels_titlecases_and_dedupes():
+    assert _normalize_labels(["rust", "Rust", "  Game Engines  "]) == ["Rust", "Game Engines"]
+
+
+def test_normalize_labels_caps_at_three():
+    assert _normalize_labels(["a", "b", "c", "d", "e"]) == ["A", "B", "C"]
+
+
+def test_normalize_labels_drops_empty():
+    assert _normalize_labels(["", "  ", "Music"]) == ["Music"]
+
+
+def test_normalize_labels_truncates_long():
+    long_label = "A" * 100
+    result = _normalize_labels([long_label])
+    assert len(result) == 1
+    assert len(result[0]) <= 24
+
+
+# --- classify_with_llm ---
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = type("M", (), {"content": content})()
+
+
+class _FakeResponse:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChat:
+    def __init__(self, content_or_exc):
+        self._content_or_exc = content_or_exc
+
+    def create(self, **kwargs):
+        if isinstance(self._content_or_exc, Exception):
+            raise self._content_or_exc
+        return _FakeResponse(self._content_or_exc)
+
+
+class _FakeOpenAI:
+    def __init__(self, content_or_exc):
+        self.chat = type("C", (), {"completions": _FakeChat(content_or_exc)})()
+
+
+def test_classify_with_llm_parses_and_normalizes(monkeypatch):
+    monkeypatch.setattr(
+        checkin_classifier,
+        "_openai_client",
+        lambda: _FakeOpenAI('{"labels": ["rust", "cli tools"]}'),
+    )
+    assert classify_with_llm("anything") == ["Rust", "Cli Tools"]
+
+
+def test_classify_with_llm_raises_on_missing_labels(monkeypatch):
+    monkeypatch.setattr(
+        checkin_classifier,
+        "_openai_client",
+        lambda: _FakeOpenAI('{"labels": []}'),
+    )
+    with pytest.raises(ValueError):
+        classify_with_llm("anything")
+
+
+def test_classify_with_llm_raises_on_bad_json(monkeypatch):
+    monkeypatch.setattr(
+        checkin_classifier,
+        "_openai_client",
+        lambda: _FakeOpenAI("not json"),
+    )
+    with pytest.raises(Exception):
+        classify_with_llm("anything")
+
+
+# --- classify_cached ---
+
+def test_classify_cached_returns_cached_value_without_calling_llm(temp_db, monkeypatch):
+    calls = {"n": 0}
+
+    def fake_llm(text):
+        calls["n"] += 1
+        return ["Rust"]
+
+    monkeypatch.setattr(checkin_classifier, "classify_with_llm", fake_llm)
+
+    first = classify_cached("hello world")
+    second = classify_cached("hello world")
+
+    assert first == ["Rust"]
+    assert second == ["Rust"]
+    assert calls["n"] == 1  # second call hit the cache
+
+
+def test_classify_cached_falls_back_to_regex_on_llm_error(temp_db, monkeypatch):
+    def fake_llm(text):
+        raise RuntimeError("ollama down")
+
+    monkeypatch.setattr(checkin_classifier, "classify_with_llm", fake_llm)
+
+    result = classify_cached("Working on my Rust CLI today")
+    assert result == ["Rust"]  # regex fallback
+
+    # Should NOT cache the fallback result, so a recovered LLM is used next time.
+    monkeypatch.setattr(checkin_classifier, "classify_with_llm", lambda t: ["Recovered"])
+    assert classify_cached("Working on my Rust CLI today") == ["Recovered"]
+
+
+# --- db snapshot helpers ---
+
+def test_snapshot_round_trip(temp_db):
+    grouped = {"Rust": [{"name": "Alice"}], "AI": [{"name": "Bob"}]}
+    db.put_snapshot(grouped)
+    result = db.get_snapshot()
+    assert result is not None
+    loaded, created_at = result
+    assert loaded == grouped
+    assert isinstance(created_at, str) and len(created_at) > 0
+
+
+def test_snapshot_overwrites_previous(temp_db):
+    db.put_snapshot({"A": []})
+    db.put_snapshot({"B": [{"name": "Carol"}]})
+    loaded, _ = db.get_snapshot()
+    assert loaded == {"B": [{"name": "Carol"}]}
+
+
+def test_snapshot_returns_none_when_empty(temp_db):
+    assert db.get_snapshot() is None
+
+
+# --- build_grouped honors classify_fn ---
+
+def test_build_grouped_uses_classify_fn(monkeypatch):
+    msgs = [
+        {
+            "id": 1,
+            "sender_id": 1,
+            "sender_full_name": "Alice",
+            "subject": "Alice",
+            "timestamp": 100,
+            "content": "<p>Anything goes here.</p>",
+            "stream_id": 41,
+            "display_recipient": "checkins",
+            "avatar_url": "",
+        },
+    ]
+    monkeypatch.setattr("checkin_fetch.fetch_raw_checkins", lambda: msgs)
+
+    def fake_classify(text):
+        return ["Custom Bucket"]
+
+    grouped = build_grouped("https://recurse.zulipchat.com", classify_fn=fake_classify)
+    assert "Custom Bucket" in grouped
+    assert grouped["Custom Bucket"][0]["name"] == "Alice"

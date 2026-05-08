@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+from contextlib import asynccontextmanager
 
 import httpx
 import uvicorn
@@ -14,6 +16,7 @@ import db
 from agent import AgentAnswerError, run_agent
 from auth import current_user, oauth, require_user
 from checkin_fetch import build_grouped
+from checkin_job import refresh_snapshot_loop
 
 load_dotenv()
 
@@ -29,7 +32,20 @@ logging.basicConfig(
     force=True,
 )
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(refresh_snapshot_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SESSION_SECRET", "dev-only-change-me"),
@@ -132,8 +148,14 @@ def ask(q: str, user: dict = Depends(require_user)):
 
 @app.get("/api/checkin-pair")
 def checkin_pair(user: dict = Depends(require_user)):
-    zulip_site = os.environ.get("ZULIP_SITE", "")
-    return build_grouped(zulip_site)
+    snap = db.get_snapshot()
+    if snap is None:
+        # First-ever boot before the background job has produced a snapshot:
+        # fall back to a synchronous regex-classified build so the page isn't empty.
+        zulip_site = os.environ.get("ZULIP_SITE", "")
+        return {"grouped": build_grouped(zulip_site), "generated_at": None}
+    grouped, created_at = snap
+    return {"grouped": grouped, "generated_at": created_at}
 
 
 @app.get("/conversations")

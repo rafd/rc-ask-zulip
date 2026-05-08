@@ -1,5 +1,6 @@
 import os
 import re
+from collections.abc import Callable
 from html.parser import HTMLParser
 
 import zulip
@@ -157,10 +158,17 @@ def fetch_raw_checkins(num_before: int = 500) -> list[dict]:
     return response.get("messages", [])
 
 
-def build_grouped(zulip_site: str) -> dict[str, list[dict]]:
+def build_grouped(
+    zulip_site: str,
+    classify_fn: Callable[[str], list[str]] = classify,
+) -> dict[str, list[dict]]:
     """
     Fetch check-ins, group by topic threads (cap 75), classify from thread text,
     and return a dict mapping bucket → list of person dicts.
+
+    classify_fn defaults to the regex-based classifier; pass a different callable
+    (e.g. an LLM-backed one) to swap classification behavior without changing the
+    rest of the pipeline.
     """
     raw = fetch_raw_checkins()
     # Zulip returns messages chronologically; reverse so newest is first for grouping.
@@ -173,7 +181,7 @@ def build_grouped(zulip_site: str) -> dict[str, list[dict]]:
         # This avoids other people's replies skewing the owner's category.
         preview_source = thread["owner_messages"] or thread["messages"]
         preview = _thread_preview(preview_source)
-        matched_buckets = classify(preview + " " + thread["topic_subject"])
+        matched_buckets = classify_fn(preview + " " + thread["topic_subject"])
         owner_msgs = thread["owner_messages"] or thread["messages"]
         anchor = max(owner_msgs, key=lambda m: m["timestamp"])
         stream_id = anchor.get("stream_id")
