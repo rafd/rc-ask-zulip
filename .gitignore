@@ -8,3 +8,4 @@ conversations.db
 *.plan.md
 .claude/*
 server.log
+.DS_Store
