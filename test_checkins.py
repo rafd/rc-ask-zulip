@@ -3,7 +3,13 @@ import pytest
 
 import checkin_classifier
 import db
-from checkin_classifier import _normalize_labels, classify_cached, classify_with_llm
+from checkin_classifier import (
+    _normalize_labels,
+    classify_cached,
+    classify_with_llm,
+    consolidate_buckets,
+    consolidate_labels,
+)
 from checkin_fetch import (
     build_grouped,
     build_threads,
@@ -15,6 +21,11 @@ from checkin_fetch import (
     suggested_message,
 )
 from checkin_topics import classify
+from llm_client import (
+    ExternalLLMNotAllowedError,
+    assert_not_blocked_provider,
+    build_openai_client,
+)
 
 
 @pytest.fixture
@@ -292,8 +303,11 @@ def test_normalize_labels_titlecases_and_dedupes():
     assert _normalize_labels(["rust", "Rust", "  Game Engines  "]) == ["Rust", "Game Engines"]
 
 
-def test_normalize_labels_caps_at_three():
-    assert _normalize_labels(["a", "b", "c", "d", "e"]) == ["A", "B", "C"]
+def test_normalize_labels_caps_at_max():
+    # MAX_LABELS = 5; extra inputs are dropped.
+    assert _normalize_labels(["a", "b", "c", "d", "e", "f", "g"]) == [
+        "A", "B", "C", "D", "E",
+    ]
 
 
 def test_normalize_labels_drops_empty():
@@ -443,3 +457,240 @@ def test_build_grouped_uses_classify_fn(monkeypatch):
     grouped = build_grouped("https://recurse.zulipchat.com", classify_fn=fake_classify)
     assert "Custom Bucket" in grouped
     assert grouped["Custom Bucket"][0]["name"] == "Alice"
+
+
+# --- consolidate_labels ---
+
+def test_consolidate_labels_skips_llm_when_already_small(temp_db, monkeypatch):
+    """If we have <= max_categories, no LLM call is needed — identity mapping."""
+    called = {"n": 0}
+
+    def fake_client():
+        called["n"] += 1
+        raise AssertionError("LLM should not be called for small label sets")
+
+    monkeypatch.setattr(checkin_classifier, "_openai_client", fake_client)
+    mapping = consolidate_labels(["Rust", "AI", "Music"], max_categories=10)
+    # Smart titlecase preserves "AI" as an acronym.
+    assert mapping == {"Rust": "Rust", "AI": "AI", "Music": "Music"}
+    assert called["n"] == 0
+
+
+def test_consolidate_labels_calls_llm_and_caches(temp_db, monkeypatch):
+    """For >max labels, the LLM is called once and the result is cached."""
+    labels = ["Rust CLI", "Rust Borrow", "AI Agents", "LLM Tooling",
+              "Game Dev", "Pygame", "Music DSP", "Synth", "Web", "CSS", "React"]
+    fake_response = '''{"mapping": {
+        "Rust CLI": "Systems",
+        "Rust Borrow": "Systems",
+        "AI Agents": "AI",
+        "LLM Tooling": "AI",
+        "Game Dev": "Games",
+        "Pygame": "Games",
+        "Music DSP": "Music",
+        "Synth": "Music",
+        "Web": "Web",
+        "CSS": "Web",
+        "React": "Web"
+    }}'''
+    calls = {"n": 0}
+
+    def fake_client_factory():
+        calls["n"] += 1
+        return _FakeOpenAI(fake_response)
+
+    monkeypatch.setattr(checkin_classifier, "_openai_client", fake_client_factory)
+    mapping = consolidate_labels(labels, max_categories=5)
+    assert mapping["Rust CLI"] == "Systems"
+    assert mapping["AI Agents"] == "AI"  # acronym preserved
+    assert calls["n"] == 1
+
+    # Same input again: served from cache, no second LLM call.
+    mapping2 = consolidate_labels(labels, max_categories=5)
+    assert mapping2 == mapping
+    assert calls["n"] == 1
+
+
+def test_consolidate_labels_falls_back_for_missing_labels(temp_db, monkeypatch):
+    """If the LLM omits some input labels, missing ones map to themselves."""
+    labels = [f"Label {i}" for i in range(15)]
+    # Mapping covers only the first three.
+    partial_response = '{"mapping": {"Label 0": "A", "Label 1": "A", "Label 2": "B"}}'
+    monkeypatch.setattr(
+        checkin_classifier, "_openai_client",
+        lambda: _FakeOpenAI(partial_response),
+    )
+    mapping = consolidate_labels(labels, max_categories=5)
+    assert mapping["Label 0"] == "A"
+    assert mapping["Label 1"] == "A"
+    assert mapping["Label 2"] == "B"
+    # Untouched labels fall back to themselves.
+    for i in range(3, 15):
+        assert mapping[f"Label {i}"] == f"Label {i}"
+
+
+# --- consolidate_buckets ---
+
+def test_consolidate_buckets_noop_when_already_small(temp_db, monkeypatch):
+    monkeypatch.setattr(
+        checkin_classifier, "_openai_client",
+        lambda: pytest.fail("LLM should not be called"),
+    )
+    grouped = {"Rust": [{"user_id": 1}], "AI": [{"user_id": 2}]}
+    assert consolidate_buckets(grouped, max_categories=10) == grouped
+
+
+def test_consolidate_buckets_merges_and_dedupes_per_user(temp_db, monkeypatch):
+    """Two labels for the same person collapse into a single parent entry."""
+    grouped = {
+        "Rust CLI": [{"user_id": 1, "name": "Alice", "timestamp": 200}],
+        "Rust Borrow": [{"user_id": 1, "name": "Alice", "timestamp": 200}],
+        "AI Agents": [{"user_id": 2, "name": "Bob", "timestamp": 100}],
+        "LLM Tooling": [{"user_id": 2, "name": "Bob", "timestamp": 100}],
+        "Game Dev": [{"user_id": 3, "name": "Carol", "timestamp": 50}],
+        "Pygame": [{"user_id": 3, "name": "Carol", "timestamp": 50}],
+        "Music DSP": [{"user_id": 4, "name": "Dan", "timestamp": 30}],
+        "Synth": [{"user_id": 4, "name": "Dan", "timestamp": 30}],
+        "Web": [{"user_id": 5, "name": "Eve", "timestamp": 20}],
+        "CSS": [{"user_id": 5, "name": "Eve", "timestamp": 20}],
+        "React": [{"user_id": 6, "name": "Frank", "timestamp": 10}],
+    }
+    fake_response = '''{"mapping": {
+        "Rust CLI": "Systems",
+        "Rust Borrow": "Systems",
+        "AI Agents": "AI",
+        "LLM Tooling": "AI",
+        "Game Dev": "Games",
+        "Pygame": "Games",
+        "Music DSP": "Music",
+        "Synth": "Music",
+        "Web": "Web",
+        "CSS": "Web",
+        "React": "Web"
+    }}'''
+    monkeypatch.setattr(
+        checkin_classifier, "_openai_client",
+        lambda: _FakeOpenAI(fake_response),
+    )
+    out = consolidate_buckets(grouped, max_categories=5)
+
+    assert len(out) <= 5
+    # Alice appeared in 2 source buckets that map to the same parent → 1 entry.
+    systems = out.get("Systems", [])
+    assert sum(1 for e in systems if e["user_id"] == 1) == 1
+    # Frank is alone in "React" → mapped to "Web".
+    web = out.get("Web", [])
+    assert any(e["user_id"] == 6 for e in web)
+    # No bucket has duplicate user_ids.
+    for parent, entries in out.items():
+        ids = [e["user_id"] for e in entries]
+        assert len(ids) == len(set(ids)), f"Duplicates in {parent}: {ids}"
+
+
+def test_consolidate_buckets_returns_input_on_empty():
+    assert consolidate_buckets({}) == {}
+
+
+def test_consolidate_buckets_returns_input_on_llm_error(temp_db, monkeypatch):
+    """If consolidate_labels raises, fall back to the unconsolidated grouped dict."""
+    grouped = {f"Label {i}": [{"user_id": i}] for i in range(15)}
+
+    def fake_client():
+        raise RuntimeError("ollama down")
+
+    monkeypatch.setattr(checkin_classifier, "_openai_client", fake_client)
+    out = consolidate_buckets(grouped, max_categories=5)
+    assert out == grouped
+
+
+# --- llm_client.assert_not_blocked_provider ---
+
+@pytest.mark.parametrize("url", [
+    # Local
+    "http://127.0.0.1:11434/v1",
+    "http://localhost:11434/v1",
+    "http://[::1]:11434/v1",
+    # Private network — fine
+    "http://192.168.1.5:11434/v1",
+    "http://10.0.0.7:11434/v1",
+    # Arbitrary public hosts that aren't on the denylist — fine
+    "https://api.groq.com/openai/v1",
+    "https://api.together.xyz/v1",
+    "https://example.com/v1",
+    "http://8.8.8.8/v1",
+    # Lookalikes that should NOT match (suffix boundary check)
+    "https://myopenai.com/v1",
+    "https://notanthropic.com/v1",
+])
+def test_assert_not_blocked_provider_allows_non_blocked(url):
+    assert_not_blocked_provider(url) is None
+
+
+@pytest.mark.parametrize("url", [
+    # OpenAI / ChatGPT
+    "https://api.openai.com/v1",
+    "https://API.OpenAI.com/v1",                  # case-insensitive
+    "https://chat.openai.com/api",
+    # Anthropic / Claude
+    "https://api.anthropic.com/v1",
+    "https://claude.ai/api",
+    # Google Gemini / Vertex
+    "https://generativelanguage.googleapis.com/v1",
+    "https://aiplatform.googleapis.com/v1",
+])
+def test_assert_not_blocked_provider_rejects_blocked(url):
+    with pytest.raises(ExternalLLMNotAllowedError):
+        assert_not_blocked_provider(url)
+
+
+def test_assert_not_blocked_provider_rejects_unparseable():
+    with pytest.raises(ExternalLLMNotAllowedError):
+        assert_not_blocked_provider("not a url")
+
+
+def test_assert_not_blocked_provider_error_message_is_actionable():
+    """The error should name the matched provider suffix."""
+    with pytest.raises(ExternalLLMNotAllowedError, match=r"openai\.com"):
+        assert_not_blocked_provider("https://api.openai.com/v1")
+
+
+# --- llm_client.build_openai_client ---
+
+def test_build_openai_client_uses_local_default(monkeypatch):
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    client = build_openai_client()
+    assert "127.0.0.1" in str(client.base_url)
+
+
+def test_build_openai_client_raises_for_chatgpt(monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    with pytest.raises(ExternalLLMNotAllowedError):
+        build_openai_client()
+
+
+def test_build_openai_client_raises_for_claude(monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.anthropic.com/v1")
+    with pytest.raises(ExternalLLMNotAllowedError):
+        build_openai_client()
+
+
+def test_build_openai_client_raises_for_gemini(monkeypatch):
+    monkeypatch.setenv(
+        "OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1"
+    )
+    with pytest.raises(ExternalLLMNotAllowedError):
+        build_openai_client()
+
+
+def test_build_openai_client_allows_arbitrary_remote(monkeypatch):
+    """Non-blocked remote endpoints (Groq, Together, self-hosted) work fine."""
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
+    client = build_openai_client()
+    assert "groq.com" in str(client.base_url)
+
+
+def test_build_openai_client_accepts_local_override(monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
+    client = build_openai_client()
+    assert "localhost" in str(client.base_url)

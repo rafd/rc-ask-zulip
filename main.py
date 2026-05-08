@@ -17,6 +17,7 @@ from agent import AgentAnswerError, run_agent
 from auth import current_user, oauth, require_user
 from checkin_fetch import build_grouped
 from checkin_job import refresh_snapshot_loop
+from llm_client import assert_not_blocked_provider, configured_base_url
 
 load_dotenv()
 
@@ -34,6 +35,12 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Fail fast if OPENAI_BASE_URL points at a blocked provider (OpenAI,
+    # Anthropic, Google Gemini). Other endpoints are fine.
+    base_url = configured_base_url()
+    assert_not_blocked_provider(base_url)
+    logging.getLogger(__name__).info("LLM base URL: %s", base_url)
+
     task = asyncio.create_task(refresh_snapshot_loop())
     try:
         yield

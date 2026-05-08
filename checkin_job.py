@@ -5,7 +5,11 @@ import time
 from datetime import datetime, timezone
 
 import db
-from checkin_classifier import classify_cached
+from checkin_classifier import (
+    DEFAULT_MAX_PARENT_CATEGORIES,
+    classify_cached,
+    consolidate_buckets,
+)
 from checkin_fetch import build_grouped
 
 logger = logging.getLogger(__name__)
@@ -31,12 +35,15 @@ def refresh_snapshot_once() -> None:
     """Build a fresh grouped snapshot and persist it. Synchronous; safe to run in a thread."""
     started = time.monotonic()
     zulip_site = os.environ.get("ZULIP_SITE", "")
-    grouped = build_grouped(zulip_site, classify_fn=classify_cached)
+    raw_grouped = build_grouped(zulip_site, classify_fn=classify_cached)
+    raw_bucket_count = len(raw_grouped)
+    grouped = consolidate_buckets(raw_grouped, DEFAULT_MAX_PARENT_CATEGORIES)
     db.put_snapshot(grouped)
     elapsed = time.monotonic() - started
     logger.info(
-        "checkin snapshot refreshed in %.1fs (%d buckets, %d total entries)",
+        "checkin snapshot refreshed in %.1fs (%d -> %d buckets, %d total entries)",
         elapsed,
+        raw_bucket_count,
         len(grouped),
         sum(len(v) for v in grouped.values()),
     )
