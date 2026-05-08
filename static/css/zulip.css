@@ -1,0 +1,80 @@
+/* zulip.css — "Ask Zulip" page-specific rules. */
+
+.wrap { max-width: 800px; }
+
+.site-header { margin-bottom: 1.5rem; }     /* override common.css default */
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 0 0 1.25rem;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+button[type="submit"] {
+  margin-top: 0.6rem;
+  padding: 0.5rem 1.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button[type="submit"]:hover { filter: brightness(0.95); }
+
+h2 {
+  font-size: 1.4rem;
+  margin: 1.75rem 0 0.65rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.past-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.past-list li {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.past-list a {
+  text-decoration: none;
+  color: var(--accent);
+  flex: 1;
+}
+
+.past-list a:hover { text-decoration: underline; }
+
+.past-list .ts {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* Replaces inline style="color:#888" on placeholder list items. */
+.past-list .muted { color: #888; }

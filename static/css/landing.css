@@ -1,0 +1,67 @@
+/* landing.css — page-specific rules for the public landing page. */
+
+body { line-height: 1.5; }                /* override common.css default of 1.45 */
+
+.wrap { max-width: 720px; }
+
+.brand { margin: 0 0 1.25rem; }           /* override common.css default */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+}
+
+.lede {
+  color: var(--muted);
+  margin: 0 0 1.5rem;
+}
+
+.features {
+  margin: 0 0 1.75rem;
+  padding-left: 1.25rem;
+}
+
+.features li { margin-bottom: 0.4rem; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: white;
+}
+.btn--primary:hover { background: var(--accent-hover); }
+
+.btn--secondary {
+  background: #e8ebf2;
+  color: var(--text);
+}
+.btn--secondary:hover { background: #dfe3ec; }
+
+.note {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
