@@ -46,22 +46,40 @@ function bucketSortKeys(keys) {
   });
 }
 
+function formatRelativeTime(iso) {
+  if (!iso) return "";
+  // Snapshot timestamps are stored naive UTC; treat as UTC.
+  const ts = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+  const diffSec = Math.max(0, Math.round((Date.now() - ts.getTime()) / 1000));
+  if (diffSec < 60) return "just now";
+  const mins = Math.round(diffSec / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  return `${days}d ago`;
+}
+
 async function load() {
   const statusEl = document.getElementById("status");
   const bucketsEl = document.getElementById("buckets");
   try {
     const res = await fetch("/api/checkin-pair");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const payload = await res.json();
+    const grouped = payload.grouped || {};
+    const generatedAt = payload.generated_at;
 
-    statusEl.textContent = "";
+    statusEl.textContent = generatedAt
+      ? `Updated ${formatRelativeTime(generatedAt)}`
+      : "";
 
     const keys = bucketSortKeys(
-      Object.keys(data).filter((k) => data[k] && data[k].length > 0)
+      Object.keys(grouped).filter((k) => grouped[k] && grouped[k].length > 0)
     );
 
     for (const bucket of keys) {
-      const people = data[bucket];
+      const people = grouped[bucket];
 
       const section = document.createElement("div");
       const h2 = document.createElement("h2");

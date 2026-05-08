@@ -3,8 +3,7 @@ import logging
 import os
 import uuid
 
-from openai import OpenAI
-
+from llm_client import build_openai_client
 from zulip_search import messages_for_agent
 
 logger = logging.getLogger(__name__)
@@ -18,12 +17,13 @@ class AgentAnswerError(Exception):
         super().__init__(message)
 
 
-def _openai_client() -> OpenAI:
-    local_ollama_base_url = "http://127.0.0.1:11434/v1"
-    local_ollama_api_key = "ollama"
-    base_url = os.environ.get("OPENAI_BASE_URL", local_ollama_base_url).rstrip("/")
-    api_key = os.environ.get("OPENAI_API_KEY", local_ollama_api_key)
-    return OpenAI(api_key=api_key, base_url=base_url)
+def _openai_client():
+    """Construct the OpenAI-compatible client.
+
+    Raises ExternalLLMNotAllowedError if OPENAI_BASE_URL is set to a blocked
+    provider (OpenAI/ChatGPT, Anthropic/Claude, Google Gemini).
+    """
+    return build_openai_client()
 
 
 def _chat_model() -> str:
