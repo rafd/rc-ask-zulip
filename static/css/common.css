@@ -1,0 +1,84 @@
+/* ============================================================================
+ * common.css — shared across landing, zulip, pair
+ *
+ * Conversation page (conversation.html) deliberately does NOT load this file;
+ * it uses a legacy plain look defined entirely in conversation.css.
+ *
+ * Page-specific stylesheets override the values noted below where they differ.
+ * Defaults pick the value used by the majority of pages; overrides are noted.
+ * ============================================================================ */
+
+:root {
+  --bg: #f6f7fb;
+  --card: #fff;
+  --border: #e2e5ec;
+  --text: #1a1d26;
+  --muted: #5c6370;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --checkin: #0d9488;        /* used by pair only; harmless on other pages */
+  --checkin-hover: #0f766e;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 4px 12px rgba(0, 0, 0, .04);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 1.5rem 1.25rem 3rem;
+  line-height: 1.45;          /* zulip + pair; landing overrides to 1.5 */
+}
+
+.wrap { margin: 0 auto; }     /* max-width set per-page */
+
+.brand {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.65rem;        /* zulip + pair; landing overrides to 1.25rem */
+}
+
+/* ---- App navigation tabs (used by zulip + pair) ---- */
+
+.site-header { margin-bottom: 1.25rem; }   /* pair; zulip overrides to 1.5rem */
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.app-nav .nav-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--muted);
+  background: #e8ebf2;
+  border: 1px solid transparent;
+}
+
+.app-nav .nav-item:hover {
+  color: var(--text);
+  background: #dfe3ec;
+}
+
+.app-nav .nav-item--active {
+  background: var(--card);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* Pushes a nav item (e.g. the Logout link) to the far right of .app-nav. */
+.nav-spacer { margin-left: auto; }
